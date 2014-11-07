@@ -3,28 +3,28 @@ require "logstash/filters/base"
 require "logstash/namespace"
 
 # This filter helps automatically parse messages (or specific event fields)
-# which are of the 'foo=bar' variety.
+# which are of the `foo=bar` variety.
 #
-# For example, if you have a log message which contains 'ip=1.2.3.4
-# error=REFUSED', you can parse those automatically by configuring:
-#
+# For example, if you have a log message which contains `ip=1.2.3.4
+# error=REFUSED`, you can parse those automatically by configuring:
+# [source,ruby]
 #     filter {
 #       kv { }
 #     }
 #
-# The above will result in a message of "ip=1.2.3.4 error=REFUSED" having
+# The above will result in a message of `ip=1.2.3.4 error=REFUSED` having
 # the fields:
 #
-# * ip: 1.2.3.4
-# * error: REFUSED
+# * `ip: 1.2.3.4`
+# * `error: REFUSED`
 #
 # This is great for postfix, iptables, and other types of logs that
-# tend towards 'key=value' syntax.
+# tend towards `key=value` syntax.
 #
 # You can configure any arbitrary strings to split your data on,
-# in case your data is not structured using '=' signs and whitespace.
+# in case your data is not structured using `=` signs and whitespace.
 # For example, this filter can also be used to parse query parameters like
-# 'foo=bar&baz=fizz' by setting the `field_split` parameter to "&".
+# `foo=bar&baz=fizz` by setting the `field_split` parameter to `&`.
 class LogStash::Filters::KV < LogStash::Filters::Base
   config_name "kv"
   milestone 2
@@ -34,10 +34,10 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   # logs).
   #
   # These characters form a regex character class and thus you must escape special regex
-  # characters like '[' or ']' using '\'.
+  # characters like `[` or `]` using `\`.
   #
-  # For example, to strip '<', '>', '[', ']' and ',' characters from values:
-  #
+  # For example, to strip `<`, `>`, `[`, `]` and `,` characters from values:
+  # [source,ruby]
   #     filter {
   #       kv {
   #         trim => "<>\[\],"
@@ -49,10 +49,10 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   # keys are wrapped in brackets or start with space.
   #
   # These characters form a regex character class and thus you must escape special regex
-  # characters like '[' or ']' using '\'.
+  # characters like `[` or `]` using `\`.
   #
-  # For example, to strip '<' '>' '[' ']' and ',' characters from keys:
-  #
+  # For example, to strip `<` `>` `[` `]` and `,` characters from keys:
+  # [source,ruby]
   #     filter {
   #       kv {
   #         trimkey => "<>\[\],"
@@ -63,52 +63,52 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   # A string of characters to use as delimiters for parsing out key-value pairs.
   #
   # These characters form a regex character class and thus you must escape special regex
-  # characters like '[' or ']' using '\'.
+  # characters like `[` or `]` using `\`.
   #
   # #### Example with URL Query Strings
   #
   # For example, to split out the args from a url query string such as
-  # '?pin=12345~0&d=123&e=foo@bar.com&oq=bobo&ss=12345':
-  #
+  # `?pin=12345~0&d=123&e=foo@bar.com&oq=bobo&ss=12345`:
+  # [source,ruby]
   #     filter {
   #       kv {
   #         field_split => "&?"
   #       }
   #     }
   #
-  # The above splits on both "&" and "?" characters, giving you the following
+  # The above splits on both `&` and `?` characters, giving you the following
   # fields:
   #
-  # * pin: 12345~0
-  # * d: 123
-  # * e: foo@bar.com
-  # * oq: bobo
-  # * ss: 12345
+  # * `pin: 12345~0`
+  # * `d: 123`
+  # * `e: foo@bar.com`
+  # * `oq: bobo`
+  # * `ss: 12345`
   config :field_split, :validate => :string, :default => ' '
 
 
   # A string of characters to use as delimiters for identifying key-value relations.
   #
   # These characters form a regex character class and thus you must escape special regex
-  # characters like '[' or ']' using '\'.
+  # characters like `[` or `]` using `\`.
   #
   # For example, to identify key-values such as
-  # 'key1:value1 key2:value2':
-  #
+  # `key1:value1 key2:value2`:
+  # [source,ruby]
   #     filter { kv { value_split => ":" } }
   config :value_split, :validate => :string, :default => '='
 
   # A string to prepend to all of the extracted keys.
   #
   # For example, to prepend arg_ to all keys:
-  #
+  # [source,ruby]
   #     filter { kv { prefix => "arg_" } }
   config :prefix, :validate => :string, :default => ''
 
-  # The field to perform 'key=value' searching on
+  # The field to perform `key=value` searching on
   #
   # For example, to process the `not_the_message` field:
-  #
+  # [source,ruby]
   #     filter { kv { source => "not_the_message" } }
   config :source, :validate => :string, :default => "message"
 
@@ -118,15 +118,16 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   # event, as individual fields.
   #
   # For example, to place all keys into the event field kv:
-  #
+  # [source,ruby]
   #     filter { kv { target => "kv" } }
   config :target, :validate => :string
 
   # An array specifying the parsed keys which should be added to the event.
   # By default all keys will be added.
   #
-  # For example, consider a source like "Hey, from=<abc>, to=def foo=bar". 
-  # To include "from" and "to", but exclude the "foo" key, you could use this configuration:
+  # For example, consider a source like `Hey, from=<abc>, to=def foo=bar`. 
+  # To include `from` and `to`, but exclude the `foo` key, you could use this configuration:
+  # [source,ruby]
   #     filter {
   #       kv {
   #         include_keys => [ "from", "to" ]
@@ -137,8 +138,9 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   # An array specifying the parsed keys which should not be added to the event.
   # By default no keys will be excluded.
   #
-  # For example, consider a source like "Hey, from=<abc>, to=def foo=bar". 
-  # To exclude "from" and "to", but retain the "foo" key, you could use this configuration:
+  # For example, consider a source like `Hey, from=<abc>, to=def foo=bar`. 
+  # To exclude `from` and `to`, but retain the `foo` key, you could use this configuration:
+  # [source,ruby]
   #     filter {
   #       kv {
   #         exclude_keys => [ "from", "to" ]
@@ -148,7 +150,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
 
   # A hash specifying the default keys and their values which should be added to the event
   # in case these keys do not exist in the source field being parsed.
-  #
+  # [source,ruby]
   #     filter {
   #       kv {
   #         default_keys => [ "from", "logstash@example.com",
