@@ -158,6 +158,20 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   #     }
   config :default_keys, :validate => :hash, :default => {}
 
+  # A bool option for removing duplicate key/value pairs. When set to false, only 
+  # one unique key/value pair will be preserved.
+  #
+  # For example, consider a source like `from=me from=me`. `[from]` will map to 
+  # an Array with two elements: `["me", "me"]`. to only keep unique key/value pairs,
+  # you could use this configuration:
+  # [source,ruby]
+  #     filter {
+  #       kv {
+  #         allow_duplicate_values => false
+  #       }
+  #     }
+  config :allow_duplicate_values, :validate => :boolean, :default => true
+
   def register
     @trim_re = Regexp.new("[#{@trim}]") if !@trim.nil?
     @trimkey_re = Regexp.new("[#{@trimkey}]") if !@trimkey.nil?
@@ -223,6 +237,11 @@ class LogStash::Filters::KV < LogStash::Filters::Base
       key = event.sprintf(@prefix) + key
 
       value = @trim.nil? ? value : value.gsub(@trim_re, "")
+
+      # Bail out if inserting duplicate value in key mapping when unique_values 
+      # option is set to true.
+      next if not @allow_duplicate_values and kv_keys.has_key?(key) and kv_keys[key].include?(value)
+
       if kv_keys.has_key?(key)
         if kv_keys[key].is_a? Array
           kv_keys[key].push(value)
