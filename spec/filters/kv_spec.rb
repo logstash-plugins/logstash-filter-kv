@@ -433,4 +433,34 @@ describe LogStash::Filters::KV do
 
   end
 
+  describe "Removing duplicate key/value pairs" do
+    config <<-CONFIG
+      filter {
+        kv {
+          field_split => "&"
+          source => "source"
+          allow_duplicate_values => false
+        }
+      }
+    CONFIG
+
+    sample("source" => "foo=bar&foo=yeah&foo=yeah") do
+      insist { subject["[foo]"] } == ["bar", "yeah"]
+    end
+  end
+
+  describe "Allow duplicate key/value pairs by default" do
+    config <<-CONFIG
+      filter {
+        kv {
+          field_split => "&"
+          source => "source"
+        }
+      }
+    CONFIG
+
+    sample("source" => "foo=bar&foo=yeah&foo=yeah") do
+      insist { subject["[foo]"] } == ["bar", "yeah", "yeah"]
+    end
+  end
 end
