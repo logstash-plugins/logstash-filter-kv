@@ -218,7 +218,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   end # def register
 
   def filter(event)
-    return unless filter?(event)
+    
 
     kv = Hash.new
 
