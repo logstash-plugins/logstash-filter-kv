@@ -185,12 +185,15 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   # `bracketsone=(hello world) bracketstwo=[hello world]`
   #
   # will be:
+  #
   # * bracketsone: hello world
   # * bracketstwo: hello world
   #
   # instead of:
+  #
   # * bracketsone: (hello
   # * bracketstwo: [hello
+  #
   config :include_brackets, :validate => :boolean, :default => true
 
   # A boolean specifying whether to drill down into values 
