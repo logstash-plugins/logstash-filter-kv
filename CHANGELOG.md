@@ -1,5 +1,6 @@
 ## 2.0.3
- - fixed fixed short circuit expressions, some optimizations, added specs
+ - fixed fixed short circuit expressions, some optimizations, added specs, PR #20
+ - fixed event field assignment, PR #21
 
 ## 2.0.0
  - Plugins were updated to follow the new shutdown semantic, this mainly allows Logstash to instruct input plugins to terminate gracefully,
