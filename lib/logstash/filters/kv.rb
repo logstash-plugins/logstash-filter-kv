@@ -1,4 +1,5 @@
 # encoding: utf-8
+
 require "logstash/filters/base"
 require "logstash/namespace"
 
@@ -221,7 +222,6 @@ class LogStash::Filters::KV < LogStash::Filters::Base
 
   def filter(event)
     kv = Hash.new
-
     value = event[@source]
 
     case value
@@ -238,23 +238,16 @@ class LogStash::Filters::KV < LogStash::Filters::Base
     # Add default key-values for missing keys
     kv = @default_keys.merge(kv)
 
-    # If we have any keys, create/append the hash
-    if kv.length > 0
-      if @target.nil?
-        # Default is to write to the root of the event.
-        dest = event.to_hash
-      else
-        if !event[@target].is_a?(Hash)
-          @logger.debug("Overwriting existing target field", :target => @target)
-          dest = event[@target] = {}
-        else
-          dest = event[@target]
-        end
-      end
+    return if kv.empty?
 
-      dest.merge!(kv)
-      filter_matched(event)
+    if @target
+      @logger.debug? && @logger.debug("Overwriting existing target field", :target => @target)
+      event[@target] = kv
+    else
+      kv.each{|k, v| event[k] = v}
     end
+
+    filter_matched(event)
   end
 
   private
@@ -295,7 +288,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
       end
 
       if kv_keys.has_key?(key)
-        if kv_keys[key].is_a? Array
+        if kv_keys[key].is_a?(Array)
           kv_keys[key].push(value)
         else
           kv_keys[key] = [kv_keys[key], value]
