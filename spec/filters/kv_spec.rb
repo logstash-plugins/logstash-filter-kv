@@ -1,3 +1,5 @@
+# encoding: utf-8
+
 require "logstash/devutils/rspec/spec_helper"
 require "logstash/filters/kv"
 
@@ -54,21 +56,108 @@ describe LogStash::Filters::KV do
   end
 
   describe "test value_split" do
-    config <<-CONFIG
-      filter {
-        kv { value_split => ':' }
-      }
-    CONFIG
+    context "using an alternate splitter" do
+      config <<-CONFIG
+        filter {
+          kv { value_split => ':' }
+        }
+      CONFIG
 
-    sample "hello:=world foo:bar baz=:fizz doublequoted:\"hello world\" singlequoted:'hello world' brackets:(hello world)" do
-      insist { subject["hello"] } == "=world"
-      insist { subject["foo"] } == "bar"
-      insist { subject["baz="] } == "fizz"
-      insist { subject["doublequoted"] } == "hello world"
-      insist { subject["singlequoted"] } == "hello world"
-      insist { subject["brackets"] } == "hello world"
+      sample "hello:=world foo:bar baz=:fizz doublequoted:\"hello world\" singlequoted:'hello world' brackets:(hello world)" do
+        insist { subject["hello"] } == "=world"
+        insist { subject["foo"] } == "bar"
+        insist { subject["baz="] } == "fizz"
+        insist { subject["doublequoted"] } == "hello world"
+        insist { subject["singlequoted"] } == "hello world"
+        insist { subject["brackets"] } == "hello world"
+      end
+    end
+  end
+
+  # these specs are quite implementation specific by testing on the private method
+  # has_value_splitter?  - this is what I figured would help fixing the short circuit
+  # broken code that was previously in place
+  describe "short circuit" do
+    subject do
+      plugin = LogStash::Filters::KV.new(options)
+      plugin.register
+      plugin
+    end
+    let(:data) { {"message" => message} }
+    let(:event) { LogStash::Event.new(data) }
+
+    context "plain message" do
+      let(:options) { {} }
+
+      context "without splitter" do
+        let(:message) { "foo:bar" }
+        it "should short circuit" do
+          expect(subject.send(:has_value_splitter?, message)).to be_falsey
+          expect(subject).to receive(:has_value_splitter?).with(message).once.and_return(false)
+          subject.filter(event)
+        end
+      end
+
+      context "with splitter" do
+        let(:message) { "foo=bar" }
+        it "should not short circuit" do
+          expect(subject.send(:has_value_splitter?, message)).to be_truthy
+          expect(subject).to receive(:has_value_splitter?).with(message).once.and_return(true)
+          subject.filter(event)
+        end
+      end
     end
 
+    context "recursive message" do
+      context "without inner splitter" do
+        let(:inner) { "bar" }
+        let(:message) { "foo=#{inner}" }
+        let(:options) { {"recursive" => "true"} }
+
+        it "should extract kv" do
+          subject.filter(event)
+          expect(event["foo"]).to eq(inner)
+        end
+
+        it "should short circuit" do
+          expect(subject.send(:has_value_splitter?, message)).to be_truthy
+          expect(subject.send(:has_value_splitter?, inner)).to be_falsey
+          expect(subject).to receive(:has_value_splitter?).with(message).once.and_return(true)
+          expect(subject).to receive(:has_value_splitter?).with(inner).once.and_return(false)
+          subject.filter(event)
+        end
+      end
+
+      context "with inner splitter" do
+        let(:foo_val) { "1" }
+        let(:baz_val) { "2" }
+        let(:inner) { "baz=#{baz_val}" }
+        let(:message) { "foo=#{foo_val} bar=(#{inner})" } # foo=1 bar=(baz=2)
+        let(:options) { {"recursive" => "true"} }
+
+        it "should extract kv" do
+          subject.filter(event)
+          expect(event["foo"]).to eq(foo_val)
+          expect(event["[bar][baz]"]).to eq(baz_val)
+        end
+
+        it "should short circuit" do
+          expect(subject.send(:has_value_splitter?, message)).to be_truthy
+          expect(subject.send(:has_value_splitter?, foo_val)).to be_falsey
+
+          expect(subject.send(:has_value_splitter?, inner)).to be_truthy
+          expect(subject.send(:has_value_splitter?, baz_val)).to be_falsey
+
+          expect(subject).to receive(:has_value_splitter?).with(message).once.and_return(true)
+          expect(subject).to receive(:has_value_splitter?).with(foo_val).once.and_return(false)
+
+          expect(subject).to receive(:has_value_splitter?).with(inner).once.and_return(true)
+          expect(subject).to receive(:has_value_splitter?).with(baz_val).once.and_return(false)
+
+          subject.filter(event)
+        end
+      end
+    end
   end
 
   describe "test field_split" do
@@ -104,12 +193,12 @@ describe LogStash::Filters::KV do
   describe "test recursive" do
     config <<-CONFIG
       filter {
-        kv { 
+        kv {
           recursive => 'true'
         }
       }
     CONFIG
-  
+
     sample 'IKE="Quick Mode completion" IKE\ IDs = (subnet= x.x.x.x mask= 255.255.255.254 and host=y.y.y.y)' do
       insist { subject["IKE"] } == 'Quick Mode completion'
       insist { subject['IKE\ IDs']['subnet'] } == 'x.x.x.x'
@@ -393,7 +482,7 @@ describe LogStash::Filters::KV do
       insist { subject["__doublequoted"] } == "hello world"
     end
   end
-  
+
   describe "test include_keys with dynamic key" do
     config <<-CONFIG
       filter {
@@ -403,13 +492,13 @@ describe LogStash::Filters::KV do
         }
       }
     CONFIG
-    
+
     sample({"data" => "foo=bar baz=fizz", "key" => "foo"}) do
       insist { subject["foo"] } == "bar"
       insist { subject["baz"] } == nil
     end
   end
-  
+
   describe "test exclude_keys with dynamic key" do
     config <<-CONFIG
       filter {
@@ -419,7 +508,7 @@ describe LogStash::Filters::KV do
         }
       }
     CONFIG
-    
+
     sample({"data" => "foo=bar baz=fizz", "key" => "foo"}) do
       insist { subject["foo"] } == nil
       insist { subject["baz"] } == "fizz"

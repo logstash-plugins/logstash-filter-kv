@@ -124,7 +124,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   # An array specifying the parsed keys which should be added to the event.
   # By default all keys will be added.
   #
-  # For example, consider a source like `Hey, from=<abc>, to=def foo=bar`. 
+  # For example, consider a source like `Hey, from=<abc>, to=def foo=bar`.
   # To include `from` and `to`, but exclude the `foo` key, you could use this configuration:
   # [source,ruby]
   #     filter {
@@ -137,7 +137,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   # An array specifying the parsed keys which should not be added to the event.
   # By default no keys will be excluded.
   #
-  # For example, consider a source like `Hey, from=<abc>, to=def foo=bar`. 
+  # For example, consider a source like `Hey, from=<abc>, to=def foo=bar`.
   # To exclude `from` and `to`, but retain the `foo` key, you could use this configuration:
   # [source,ruby]
   #     filter {
@@ -158,10 +158,10 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   #     }
   config :default_keys, :validate => :hash, :default => {}
 
-  # A bool option for removing duplicate key/value pairs. When set to false, only 
+  # A bool option for removing duplicate key/value pairs. When set to false, only
   # one unique key/value pair will be preserved.
   #
-  # For example, consider a source like `from=me from=me`. `[from]` will map to 
+  # For example, consider a source like `from=me from=me`. `[from]` will map to
   # an Array with two elements: `["me", "me"]`. to only keep unique key/value pairs,
   # you could use this configuration:
   # [source,ruby]
@@ -193,7 +193,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   # * bracketstwo: [hello
   config :include_brackets, :validate => :boolean, :default => true
 
-  # A boolean specifying whether to drill down into values 
+  # A boolean specifying whether to drill down into values
   # and recursively get more key-value pairs from it.
   # The extra key-value pairs will be stored as subkeys of the root key.
   #
@@ -208,30 +208,32 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   config :recursive, :validate => :boolean, :default => false
 
   def register
-    @trim_re = Regexp.new("[#{@trim}]") if !@trim.nil?
-    @trimkey_re = Regexp.new("[#{@trimkey}]") if !@trimkey.nil?
+    @trim_re = Regexp.new("[#{@trim}]") if @trim
+    @trimkey_re = Regexp.new("[#{@trimkey}]") if @trimkey
 
     valueRxString = "(?:\"([^\"]+)\"|'([^']+)'"
     valueRxString += "|\\(([^\\)]+)\\)|\\[([^\\]]+)\\]" if @include_brackets
-    valueRxString += "|((?:\\\\ |[^"+@field_split+"])+))"
-    @scan_re = Regexp.new("((?:\\\\ |[^"+@field_split+@value_split+"])+)\\s*["+@value_split+"]\\s*"+valueRxString)
-  end # def register
+    valueRxString += "|((?:\\\\ |[^" + @field_split + "])+))"
+    @scan_re = Regexp.new("((?:\\\\ |[^" + @field_split + @value_split + "])+)\\s*[" + @value_split + "]\\s*" + valueRxString)
+
+    @value_split_re = /[#{@value_split}]/
+  end
 
   def filter(event)
-    
-
     kv = Hash.new
 
     value = event[@source]
 
     case value
-      when nil; # Nothing to do
-      when String; kv = parse(value, event, kv)
-      when Array; value.each { |v| kv = parse(v, event, kv) }
-      else
-        @logger.warn("kv filter has no support for this type of data",
-                     :type => value.class, :value => value)
-    end # case value
+    when nil
+      # Nothing to do
+    when String
+      kv = parse(value, event, kv)
+    when Array
+      value.each { |v| kv = parse(v, event, kv) }
+    else
+      @logger.warn("kv filter has no support for this type of data", :type => value.class, :value => value)
+    end
 
     # Add default key-values for missing keys
     kv = @default_keys.merge(kv)
@@ -253,41 +255,43 @@ class LogStash::Filters::KV < LogStash::Filters::Base
       dest.merge!(kv)
       filter_matched(event)
     end
-  end # def filter
+  end
 
   private
+
+  def has_value_splitter?(s)
+    s =~ @value_split_re
+  end
+
   def parse(text, event, kv_keys)
-    if !event =~ /[@value_split]/
-      return kv_keys
-    end
-    
+    # short circuit parsing if the text does not contain the @value_split
+    return kv_keys unless has_value_splitter?(text)
+
     # Interpret dynamic keys for @include_keys and @exclude_keys
     include_keys = @include_keys.map{|key| event.sprintf(key)}
     exclude_keys = @exclude_keys.map{|key| event.sprintf(key)}
-    
+
     text.scan(@scan_re) do |key, v1, v2, v3, v4, v5|
       value = v1 || v2 || v3 || v4 || v5
-      key = @trimkey.nil? ? key : key.gsub(@trimkey_re, "")
-      
+      key = @trimkey ? key.gsub(@trimkey_re, "") : key
+
       # Bail out as per the values of include_keys and exclude_keys
       next if not include_keys.empty? and not include_keys.include?(key)
+      # next unless include_keys.include?(key)
       next if exclude_keys.include?(key)
 
       key = event.sprintf(@prefix) + key
 
-      value = @trim.nil? ? value : value.gsub(@trim_re, "")
+      value = @trim ? value.gsub(@trim_re, "") : value
 
-      # Bail out if inserting duplicate value in key mapping when unique_values 
+      # Bail out if inserting duplicate value in key mapping when unique_values
       # option is set to true.
       next if not @allow_duplicate_values and kv_keys.has_key?(key) and kv_keys[key].include?(value)
 
       # recursively get more kv pairs from the value
-      if @recursive and value =~ /[@value_split]/
-        innerKv = Hash.new
-        innerKv = parse(value, event, innerKv) 
-        if innerKv.length > 0
-          value = innerKv
-        end
+      if @recursive
+        innerKv = parse(value, event, {})
+        value = innerKv unless innerKv.empty?
       end
 
       if kv_keys.has_key?(key)
@@ -300,6 +304,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
         kv_keys[key] = value
       end
     end
+
     return kv_keys
   end
-end # class LogStash::Filters::KV
+end
