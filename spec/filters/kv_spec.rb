@@ -600,4 +600,33 @@ describe LogStash::Filters::KV do
       insist { subject["[foo]"] } == ["bar", "yeah", "yeah"]
     end
   end
+
+  describe "keys without values (reported in #22)" do
+    subject do
+      plugin = LogStash::Filters::KV.new(options)
+      plugin.register
+      plugin
+    end
+
+    let(:message) { "AccountStatus: 4\r\nAdditionalInformation\r\n\r\nCode: \r\nHttpStatusCode: \r\nIsSuccess: True\r\nMessage: \r\n" }
+    let(:data) { {"message" => message} }
+    let(:event) { LogStash::Event.new(data) }
+    let(:options) {
+      {
+        "field_split" => "\r\n",
+        "value_split" => " ",
+        "trimkey" => ":"
+      }
+    }
+
+    context "key and splitters with no value" do
+      it "should ignore the incomplete key/value pairs" do
+        subject.filter(event)
+        expect(event["AccountStatus"]).to eq("4")
+        expect(event["IsSuccess"]).to eq("True")
+        expect(event.to_hash.keys.sort).to eq(
+          ["@timestamp", "@version", "AccountStatus", "IsSuccess", "message"])
+      end
+    end
+  end
 end

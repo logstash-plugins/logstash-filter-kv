@@ -1,3 +1,6 @@
+## 2.0.4
+ - Fixed: Fields without values could claim the next field + value under certain circumstances. Reported in #22
+
 ## 2.0.3
  - fixed fixed short circuit expressions, some optimizations, added specs, PR #20
  - fixed event field assignment, PR #21
