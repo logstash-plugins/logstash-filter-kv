@@ -210,6 +210,11 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   #     }
   #
   config :recursive, :validate => :boolean, :default => false
+  
+  # Append values to the `tags` field when there has been no
+  # successful match
+  config :tag_on_failure, :validate => :array, :default => ["_kvparsefailure"]
+
 
   def register
     @trim_re = Regexp.new("[#{@trim}]") if @trim
@@ -240,7 +245,10 @@ class LogStash::Filters::KV < LogStash::Filters::Base
     # Add default key-values for missing keys
     kv = @default_keys.merge(kv)
 
-    return if kv.empty?
+    if kv.empty?
+      @tag_on_failure.each{|tag| event.tag(tag)}
+      return
+    end
 
     if @target
       @logger.debug? && @logger.debug("Overwriting existing target field", :target => @target)

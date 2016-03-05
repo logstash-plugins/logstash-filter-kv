@@ -107,6 +107,21 @@ describe LogStash::Filters::KV do
         end
       end
     end
+    
+    context "invalid message" do
+      context "without splitter" do
+        let(:tag_1) { "_failure_tag_1" }
+        let(:tag_2) { "_failure_tag_2" }
+        let(:message) { "random text foo bar baz" }
+        let(:options) { {"tag_on_failure" => ["#{tag_1}", "#{tag_2}"]} }
+
+        it "should short circuit" do
+          subject.filter(event)
+          expect(event['tags']).to include("_failure_tag_1")
+          expect(event['tags']).to include("_failure_tag_2")
+        end
+      end
+    end
 
     context "recursive message" do
       context "without inner splitter" do
@@ -286,7 +301,7 @@ describe LogStash::Filters::KV do
       CONFIG
 
       sample "this is not key value" do
-        insist { subject["tags"] }.nil?
+        insist { subject["tags"] } == ["_kvparsefailure"]
       end
     end
   end
