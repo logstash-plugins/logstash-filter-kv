@@ -214,8 +214,9 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   def register
     @trim_re = Regexp.new("[#{@trim}]") if @trim
     @trimkey_re = Regexp.new("[#{@trimkey}]") if @trimkey
-
-    valueRxString = "(?:\"([^\"]+)\"|'([^']+)'"
+    doubleQuotes = '"([^"\\\\]*(?:\\\\.[^"\\\\]*)*)"'
+    singleQuotes = "'([^'\\\\]*(?:\\\\.[^'\\\\]*)*)'"
+    valueRxString = "(?:" + doubleQuotes + '|' + singleQuotes
     valueRxString += "|\\(([^\\)]+)\\)|\\[([^\\]]+)\\]" if @include_brackets
     valueRxString += "|((?:\\\\ |[^" + @field_split + "])+))"
     @scan_re = Regexp.new("((?:\\\\ |[^" + @field_split + @value_split + "])+)\s*[" + @value_split + "]\s*" + valueRxString)

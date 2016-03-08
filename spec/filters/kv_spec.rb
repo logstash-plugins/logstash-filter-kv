@@ -14,7 +14,7 @@ describe LogStash::Filters::KV do
       }
     CONFIG
 
-    sample "hello=world foo=bar baz=fizz doublequoted=\"hello world\" singlequoted='hello world' bracketsone=(hello world) bracketstwo=[hello world]" do
+    sample "hello=world foo=bar baz=fizz doublequoted=\"hello world\" singlequoted='hello world' bracketsone=(hello world) bracketstwo=[hello world] singlequotedescaped='hello\\' world' doublequotedescaped=\"hello\\\" world\"" do
       insist { subject["hello"] } == "world"
       insist { subject["foo"] } == "bar"
       insist { subject["baz"] } == "fizz"
@@ -22,6 +22,8 @@ describe LogStash::Filters::KV do
       insist { subject["singlequoted"] } == "hello world"
       insist { subject["bracketsone"] } == "hello world"
       insist { subject["bracketstwo"] } == "hello world"
+      insist { subject["singlequotedescaped"] } == "hello\\' world"
+      insist { subject["doublequotedescaped"] } == "hello\\\" world"
     end
   end
 
@@ -32,13 +34,15 @@ describe LogStash::Filters::KV do
       }
     CONFIG
 
-    sample "hello = world foo =bar baz= fizz doublequoted = \"hello world\" singlequoted= 'hello world' brackets =(hello world)" do
+    sample "hello = world foo =bar baz= fizz doublequoted = \"hello world\" singlequoted= 'hello world' brackets =(hello world) singlequotedescaped ='hello\\' world' doublequotedescaped= \"hello\\\" world\"" do
       insist { subject["hello"] } == "world"
       insist { subject["foo"] } == "bar"
       insist { subject["baz"] } == "fizz"
       insist { subject["doublequoted"] } == "hello world"
       insist { subject["singlequoted"] } == "hello world"
       insist { subject["brackets"] } == "hello world"
+      insist { subject["singlequotedescaped"] } == "hello\\' world"
+      insist { subject["doublequotedescaped"] } == "hello\\\" world"
     end
   end
 
@@ -63,13 +67,15 @@ describe LogStash::Filters::KV do
         }
       CONFIG
 
-      sample "hello:=world foo:bar baz=:fizz doublequoted:\"hello world\" singlequoted:'hello world' brackets:(hello world)" do
+      sample "hello:=world foo:bar baz=:fizz doublequoted:\"hello world\" singlequoted:'hello world' brackets:(hello world) singlequotedescaped:'hello\\' world' doublequotedescaped:\"hello\\\" world\"" do
         insist { subject["hello"] } == "=world"
         insist { subject["foo"] } == "bar"
         insist { subject["baz="] } == "fizz"
         insist { subject["doublequoted"] } == "hello world"
         insist { subject["singlequoted"] } == "hello world"
         insist { subject["brackets"] } == "hello world"
+        insist { subject["singlequotedescaped"] } == "hello\\' world"
+        insist { subject["doublequotedescaped"] } == "hello\\\" world"
       end
     end
   end
@@ -167,13 +173,15 @@ describe LogStash::Filters::KV do
       }
     CONFIG
 
-    sample "?hello=world&foo=bar&baz=fizz&doublequoted=\"hello world\"&singlequoted='hello world'&ignoreme&foo12=bar12" do
+    sample "?hello=world&foo=bar&baz=fizz&doublequoted=\"hello world\"&singlequoted='hello world'&ignoreme&foo12=bar12&singlequotedescaped='hello\\' world'&doublequotedescaped=\"hello\\\" world\"" do
       insist { subject["hello"] } == "world"
       insist { subject["foo"] } == "bar"
       insist { subject["baz"] } == "fizz"
       insist { subject["doublequoted"] } == "hello world"
       insist { subject["singlequoted"] } == "hello world"
       insist { subject["foo12"] } == "bar12"
+      insist { subject["singlequotedescaped"] } == "hello\\' world"
+      insist { subject["doublequotedescaped"] } == "hello\\\" world"
     end
   end
 
@@ -228,12 +236,14 @@ describe LogStash::Filters::KV do
       }
     CONFIG
 
-    sample "hello=world foo=bar baz=fizz doublequoted=\"hello world\" singlequoted='hello world'" do
+    sample "hello=world foo=bar baz=fizz doublequoted=\"hello world\" singlequoted='hello world' singlequotedescaped='hello\\' world' doublequotedescaped=\"hello\\\" world\"" do
       insist { subject["__hello"] } == "world"
       insist { subject["__foo"] } == "bar"
       insist { subject["__baz"] } == "fizz"
       insist { subject["__doublequoted"] } == "hello world"
       insist { subject["__singlequoted"] } == "hello world"
+      insist { subject["__singlequotedescaped"] } == "hello\\' world"
+      insist { subject["__doublequotedescaped"] } == "hello\\\" world"
     end
 
   end
@@ -326,13 +336,15 @@ describe LogStash::Filters::KV do
       }
     CONFIG
 
-    sample "hello=world foo=bar baz=fizz doublequoted=\"hello world\" singlequoted='hello world'" do
+    sample "hello=world foo=bar baz=fizz doublequoted=\"hello world\" singlequoted='hello world' singlequotedescaped='hello\\' world' doublequotedescaped=\"hello\\\" world\"" do
       insist { subject["kv"]["hello"] } == "world"
       insist { subject["kv"]["foo"] } == "bar"
       insist { subject["kv"]["baz"] } == "fizz"
       insist { subject["kv"]["doublequoted"] } == "hello world"
       insist { subject["kv"]["singlequoted"] } == "hello world"
-      insist {subject["kv"].count } == 5
+      insist { subject["kv"]["singlequotedescaped"] } == "hello\\' world"
+      insist { subject["kv"]["doublequotedescaped"] } == "hello\\\" world"
+      insist {subject["kv"].count } == 7
     end
 
   end
@@ -358,12 +370,14 @@ describe LogStash::Filters::KV do
         }
       }
     CONFIG
-    sample("data" => "hello=world foo=bar baz=fizz doublequoted=\"hello world\" singlequoted='hello world'") do
+    sample("data" => "hello=world foo=bar baz=fizz doublequoted=\"hello world\" singlequoted='hello world' singlequotedescaped='hello\\' world' doublequotedescaped=\"hello\\\" world\"") do
       insist { subject["hello"] } == "world"
       insist { subject["foo"] } == "bar"
       insist { subject["baz"] } == "fizz"
       insist { subject["doublequoted"] } == "hello world"
       insist { subject["singlequoted"] } == "hello world"
+      insist { subject["singlequotedescaped"] } == "hello\\' world"
+      insist { subject["doublequotedescaped"] } == "hello\\\" world"
     end
   end
 
@@ -375,12 +389,14 @@ describe LogStash::Filters::KV do
         }
       }
     CONFIG
-    sample({"@data" => "hello=world foo=bar baz=fizz doublequoted=\"hello world\" singlequoted='hello world'"}) do
+    sample({"@data" => "hello=world foo=bar baz=fizz doublequoted=\"hello world\" singlequoted='hello world' singlequotedescaped='hello\\' world' doublequotedescaped=\"hello\\\" world\""}) do
       insist { subject["hello"] } == "world"
       insist { subject["foo"] } == "bar"
       insist { subject["baz"] } == "fizz"
       insist { subject["doublequoted"] } == "hello world"
       insist { subject["singlequoted"] } == "hello world"
+      insist { subject["singlequotedescaped"] } == "hello\\' world"
+      insist { subject["doublequotedescaped"] } == "hello\\\" world"
     end
   end
 
@@ -394,13 +410,15 @@ describe LogStash::Filters::KV do
         }
       }
     CONFIG
-    sample("data" => "hello=world foo=bar baz=fizz doublequoted=\"hello world\" singlequoted='hello world'") do
+    sample("data" => "hello=world foo=bar baz=fizz doublequoted=\"hello world\" singlequoted='hello world' singlequotedescaped='hello\\' world' doublequotedescaped=\"hello\\\" world\"") do
       insist { subject["kv"]["hello"] } == "world"
       insist { subject["kv"]["foo"] } == "bar"
       insist { subject["kv"]["baz"] } == "fizz"
       insist { subject["kv"]["doublequoted"] } == "hello world"
       insist { subject["kv"]["singlequoted"] } == "hello world"
-      insist { subject["kv"].count } == 5
+      insist { subject["kv"]["singlequotedescaped"] } == "hello\\' world"
+      insist { subject["kv"]["doublequotedescaped"] } == "hello\\\" world"
+      insist { subject["kv"].count } == 7
     end
   end
 
@@ -423,14 +441,15 @@ describe LogStash::Filters::KV do
     config <<-CONFIG
       filter {
         kv {
-          include_keys => [ "foo", "singlequoted" ]
+          include_keys => [ "foo", "singlequoted", "doublequotedescaped" ]
         }
       }
     CONFIG
 
-    sample "hello=world foo=bar baz=fizz doublequoted=\"hello world\" singlequoted='hello world'" do
+    sample "hello=world foo=bar baz=fizz doublequoted=\"hello world\" singlequoted='hello world' singlequotedescaped='hello\\' world' doublequotedescaped=\"hello\\\" world\"" do
       insist { subject["foo"] } == "bar"
       insist { subject["singlequoted"] } == "hello world"
+      insist { subject["doublequotedescaped"] } == "hello\\\" world"
     end
   end
 
@@ -438,15 +457,16 @@ describe LogStash::Filters::KV do
     config <<-CONFIG
       filter {
         kv {
-          exclude_keys => [ "foo", "singlequoted" ]
+          exclude_keys => [ "foo", "singlequoted", "doublequotedescaped" ]
         }
       }
     CONFIG
 
-    sample "hello=world foo=bar baz=fizz doublequoted=\"hello world\" singlequoted='hello world'" do
+    sample "hello=world foo=bar baz=fizz doublequoted=\"hello world\" singlequoted='hello world' singlequotedescaped='hello\\' world' doublequotedescaped=\"hello\\\" world\"" do
       insist { subject["hello"] } == "world"
       insist { subject["baz"] } == "fizz"
       insist { subject["doublequoted"] } == "hello world"
+      insist { subject["singlequotedescaped"] } == "hello\\' world"
     end
   end
 
@@ -454,15 +474,16 @@ describe LogStash::Filters::KV do
     config <<-CONFIG
       filter {
         kv {
-          include_keys => [ "foo", "singlequoted" ]
+          include_keys => [ "foo", "singlequoted", "doublequotedescaped" ]
           prefix       => "__"
         }
       }
     CONFIG
 
-    sample "hello=world foo=bar baz=fizz doublequoted=\"hello world\" singlequoted='hello world'" do
+    sample "hello=world foo=bar baz=fizz doublequoted=\"hello world\" singlequoted='hello world' singlequotedescaped='hello\\' world' doublequotedescaped=\"hello\\\" world\"" do
       insist { subject["__foo"] } == "bar"
       insist { subject["__singlequoted"] } == "hello world"
+      insist { subject["__doublequotedescaped"] } == "hello\\\" world"
     end
   end
 
@@ -470,16 +491,17 @@ describe LogStash::Filters::KV do
     config <<-CONFIG
       filter {
         kv {
-          exclude_keys => [ "foo", "singlequoted" ]
+          exclude_keys => [ "foo", "singlequoted", "doublequotedescaped" ]
           prefix       => "__"
         }
       }
     CONFIG
 
-    sample "hello=world foo=bar baz=fizz doublequoted=\"hello world\" singlequoted='hello world'" do
+    sample "hello=world foo=bar baz=fizz doublequoted=\"hello world\" singlequoted='hello world' singlequotedescaped='hello\\' world' doublequotedescaped=\"hello\\\" world\"" do
       insist { subject["__hello"] } == "world"
       insist { subject["__baz"] } == "fizz"
       insist { subject["__doublequoted"] } == "hello world"
+      insist { subject["__singlequotedescaped"] } == "hello\\' world"
     end
   end
 
@@ -526,8 +548,8 @@ describe LogStash::Filters::KV do
       }
     CONFIG
 
-    sample "hello=world foo=bar baz=fizz doublequoted=\"hello world\" singlequoted='hello world'" do
-      %w(hello foo baz doublequoted singlequoted).each do |field|
+    sample "hello=world foo=bar baz=fizz doublequoted=\"hello world\" singlequoted='hello world' singlequotedescaped='hello\\' world' doublequotedescaped=\"hello\\\" world\"" do
+      %w(hello foo baz doublequoted singlequoted singlequotedescaped doublequotedescaped).each do |field|
         reject { subject }.include?(field)
       end
     end
@@ -543,13 +565,15 @@ describe LogStash::Filters::KV do
       }
     CONFIG
 
-    sample "hello=world foo=bar baz=fizz doublequoted=\"hello world\" singlequoted='hello world'" do
+    sample "hello=world foo=bar baz=fizz doublequoted=\"hello world\" singlequoted='hello world' singlequotedescaped='hello\\' world' doublequotedescaped=\"hello\\\" world\"" do
       insist { subject["hello"] } == "world"
       insist { subject["foo"] } == "bar"
       insist { subject["goo"] } == "yyy"
       insist { subject["baz"] } == "fizz"
       insist { subject["doublequoted"] } == "hello world"
       insist { subject["singlequoted"] } == "hello world"
+      insist { subject["singlequotedescaped"] } == "hello\\' world"
+      insist { subject["doublequotedescaped"] } == "hello\\\" world"
     end
   end
 
