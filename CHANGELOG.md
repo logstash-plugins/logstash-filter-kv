@@ -1,3 +1,5 @@
+# 2.0.5
+  - New dependency requirements for logstash-core for the 5.0 release
 ## 2.0.4
  - Fixed: Fields without values could claim the next field + value under certain circumstances. Reported in #22
 
