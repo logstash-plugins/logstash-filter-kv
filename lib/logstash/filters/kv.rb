@@ -173,8 +173,8 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   #     }
   config :allow_duplicate_values, :validate => :boolean, :default => true
 
-  # A boolean specifying whether to include brackets as value `wrappers`
-  # (the default is true)
+  # A boolean specifying whether to treat square brackets, angle brackets,
+  # and parentheses as value "wrappers" that should be removed from the value.
   # [source,ruby]
   #     filter {
   #       kv {
@@ -183,17 +183,19 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   #     }
   #
   # For example, the result of this line:
-  # `bracketsone=(hello world) bracketstwo=[hello world]`
+  # `bracketsone=(hello world) bracketstwo=[hello world] bracketsthree=<hello world>`
   #
   # will be:
   #
   # * bracketsone: hello world
   # * bracketstwo: hello world
+  # * bracketsthree: hello world
   #
   # instead of:
   #
   # * bracketsone: (hello
   # * bracketstwo: [hello
+  # * bracketsthree: <hello
   #
   config :include_brackets, :validate => :boolean, :default => true
 
@@ -216,7 +218,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
     @trimkey_re = Regexp.new("[#{@trimkey}]") if @trimkey
 
     valueRxString = "(?:\"([^\"]+)\"|'([^']+)'"
-    valueRxString += "|\\(([^\\)]+)\\)|\\[([^\\]]+)\\]" if @include_brackets
+    valueRxString += "|\\(([^\\)]+)\\)|\\[([^\\]]+)\\]|<([^>]+)>" if @include_brackets
     valueRxString += "|((?:\\\\ |[^" + @field_split + "])+))"
     @scan_re = Regexp.new("((?:\\\\ |[^" + @field_split + @value_split + "])+)\s*[" + @value_split + "]\s*" + valueRxString)
     @value_split_re = /[#{@value_split}]/
@@ -266,8 +268,8 @@ class LogStash::Filters::KV < LogStash::Filters::Base
     include_keys = @include_keys.map{|key| event.sprintf(key)}
     exclude_keys = @exclude_keys.map{|key| event.sprintf(key)}
 
-    text.scan(@scan_re) do |key, v1, v2, v3, v4, v5|
-      value = v1 || v2 || v3 || v4 || v5
+    text.scan(@scan_re) do |key, v1, v2, v3, v4, v5, v6|
+      value = v1 || v2 || v3 || v4 || v5 || v6
       key = @trimkey ? key.gsub(@trimkey_re, "") : key
 
       # Bail out as per the values of include_keys and exclude_keys
