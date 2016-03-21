@@ -87,7 +87,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   config :field_split, :validate => :string, :default => ' '
 
 
-  # A string of characters to use as delimiters for identifying key-value relations.
+  # A non-empty string of characters to use as delimiters for identifying key-value relations.
   #
   # These characters form a regex character class and thus you must escape special regex
   # characters like `[` or `]` using `\`.
@@ -212,6 +212,15 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   config :recursive, :validate => :boolean, :default => false
 
   def register
+    if @value_split.empty?
+      raise LogStash::ConfigurationError, I18n.t(
+        "logstash.agent.configuration.invalid_plugin_register",
+        :plugin => "filter",
+        :type => "kv",
+        :error => "Configuration option 'value_split' must be a non-empty string"
+      )
+    end
+
     @trim_re = Regexp.new("[#{@trim}]") if @trim
     @trimkey_re = Regexp.new("[#{@trimkey}]") if @trimkey
 

@@ -629,4 +629,18 @@ describe LogStash::Filters::KV do
       end
     end
   end
+
+  describe "an empty value_split option should be reported" do
+    config <<-CONFIG
+      filter {
+        kv {
+          value_split => ""
+        }
+      }
+    CONFIG
+
+    sample("message" => "random message") do
+      insist { subject }.raises(LogStash::ConfigurationError)
+    end
+  end
 end
