@@ -80,9 +80,9 @@ describe LogStash::Filters::KV do
       insist { subject["Hello"] } == "World"
       insist { subject["Foo"] } == "Bar"
       insist { subject["Baz"] } == "Fizz"
-      insist { subject["Doublequoted"] } == "Hello World"
-      insist { subject["Singlequoted"] } == "Hello World"
-      insist { subject["Brackets"] } == "Hello World"
+      insist { subject["Doublequoted"] } == "Hello world"
+      insist { subject["Singlequoted"] } == "Hello world"
+      insist { subject["Brackets"] } == "Hello world"
     end
   end
 
