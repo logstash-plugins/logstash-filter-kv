@@ -29,6 +29,11 @@ require "logstash/namespace"
 class LogStash::Filters::KV < LogStash::Filters::Base
   config_name "kv"
 
+  # Constants used for transform check
+  TRANSFORM_LOWERCASE_KEY = "lowercase"
+  TRANSFORM_UPPERCASE_KEY = "uppercase"
+  TRANSFORM_CAPITALIZE_KEY = "capitalize"
+
   # A string of characters to trim from the value. This is useful if your
   # values are wrapped in brackets or are terminated with commas (like postfix
   # logs).
@@ -59,6 +64,28 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   #       }
   #     }
   config :trimkey, :validate => :string
+
+  # Transform values to lower case, upper case or capitals.
+  #
+  # For example, to capitalize all values:
+  # [source,ruby]
+  #     filter {
+  #       kv {
+  #         transform_value => "capitalize"
+  #       }
+  #     }
+  config :transform_value, :validate => [TRANSFORM_LOWERCASE_KEY, TRANSFORM_UPPERCASE_KEY, TRANSFORM_CAPITALIZE_KEY]
+
+  # Transform keys to lower case, upper case or capitals.
+  #
+  # For example, to lowercase all keys:
+  # [source,ruby]
+  #     filter {
+  #       kv {
+  #         transform_key => "lowercase"
+  #       }
+  #     }
+  config :transform_key, :validate => [TRANSFORM_LOWERCASE_KEY, TRANSFORM_UPPERCASE_KEY, TRANSFORM_CAPITALIZE_KEY]
 
   # A string of characters to use as delimiters for parsing out key-value pairs.
   #
@@ -269,6 +296,17 @@ class LogStash::Filters::KV < LogStash::Filters::Base
     s =~ @value_split_re
   end
 
+  def transform(text, method)
+    case method
+    when TRANSFORM_LOWERCASE_KEY
+      return text.downcase
+    when TRANSFORM_UPPERCASE_KEY
+      return text.upcase
+    when TRANSFORM_CAPITALIZE_KEY
+      return text.capitalize
+    end
+  end
+
   def parse(text, event, kv_keys)
     # short circuit parsing if the text does not contain the @value_split
     return kv_keys unless has_value_splitter?(text)
@@ -280,6 +318,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
     text.scan(@scan_re) do |key, v1, v2, v3, v4, v5, v6|
       value = v1 || v2 || v3 || v4 || v5 || v6
       key = @trimkey ? key.gsub(@trimkey_re, "") : key
+      key = @transform_key ? transform(key, @transform_key) : key
 
       # Bail out as per the values of include_keys and exclude_keys
       next if not include_keys.empty? and not include_keys.include?(key)
@@ -289,6 +328,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
       key = event.sprintf(@prefix) + key
 
       value = @trim ? value.gsub(@trim_re, "") : value
+      value = @transform_value ? transform(value, @transform_value) : value
 
       # Bail out if inserting duplicate value in key mapping when unique_values
       # option is set to true.

@@ -26,6 +26,66 @@ describe LogStash::Filters::KV do
     end
   end
 
+  describe  "test transforming keys to uppercase and values to lowercase" do
+    config <<-CONFIG
+      filter {
+        kv {
+          transform_key => "uppercase"
+          transform_value => "lowercase"
+        }
+      }
+    CONFIG
+
+    sample "hello = world Foo =Bar BAZ= FIZZ doublequoteD = \"hellO worlD\" Singlequoted= 'Hello World' brAckets =(hello World)" do
+      insist { subject["HELLO"] } == "world"
+      insist { subject["FOO"] } == "bar"
+      insist { subject["BAZ"] } == "fizz"
+      insist { subject["DOUBLEQUOTED"] } == "hello world"
+      insist { subject["SINGLEQUOTED"] } == "hello world"
+      insist { subject["BRACKETS"] } == "hello world"
+    end
+  end
+
+  describe  "test transforming keys to lowercase and values to uppercase" do
+    config <<-CONFIG
+      filter {
+        kv {
+          transform_key => "lowercase"
+          transform_value => "uppercase"
+        }
+      }
+    CONFIG
+
+    sample "Hello = World fOo =bar baz= FIZZ DOUBLEQUOTED = \"hellO worlD\" singlequoted= 'hEllo wOrld' brackets =(HELLO world)" do
+      insist { subject["hello"] } == "WORLD"
+      insist { subject["foo"] } == "BAR"
+      insist { subject["baz"] } == "FIZZ"
+      insist { subject["doublequoted"] } == "HELLO WORLD"
+      insist { subject["singlequoted"] } == "HELLO WORLD"
+      insist { subject["brackets"] } == "HELLO WORLD"
+    end
+  end
+
+  describe  "test transforming keys and values to capitals" do
+    config <<-CONFIG
+      filter {
+        kv {
+          transform_key => "capitalize"
+          transform_value => "capitalize"
+        }
+      }
+    CONFIG
+
+    sample "Hello = World fOo =bar baz= FIZZ DOUBLEQUOTED = \"hellO worlD\" singlequoted= 'hEllo wOrld' brackets =(HELLO world)" do
+      insist { subject["Hello"] } == "World"
+      insist { subject["Foo"] } == "Bar"
+      insist { subject["Baz"] } == "Fizz"
+      insist { subject["Doublequoted"] } == "Hello world"
+      insist { subject["Singlequoted"] } == "Hello world"
+      insist { subject["Brackets"] } == "Hello world"
+    end
+  end
+
   describe  "test spaces attached to the field_split" do
     config <<-CONFIG
       filter {
