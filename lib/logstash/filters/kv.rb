@@ -60,6 +60,30 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   #     }
   config :trimkey, :validate => :string
 
+
+
+  # Normalize values to lower case, upper case or capitals.
+  #
+  # For example, to capitalize all values:
+  # [source,ruby]
+  #     filter {
+  #       kv {
+  #         norm => "capitalize"
+  #       }
+  #     }
+  config :norm, :validate => ["lowercase", "uppercase", "capitalize"]
+
+  # Normalize keys to lower case, upper case or capitals.
+  #
+  # For example, to lowercase all keys:
+  # [source,ruby]
+  #     filter {
+  #       kv {
+  #         normkey => "lowercase"
+  #       }
+  #     }
+  config :normkey, :validate => ["lowercase", "uppercase", "capitalize"]
+
   # A string of characters to use as delimiters for parsing out key-value pairs.
   #
   # These characters form a regex character class and thus you must escape special regex
@@ -269,6 +293,17 @@ class LogStash::Filters::KV < LogStash::Filters::Base
     s =~ @value_split_re
   end
 
+  def norm(text, method)
+    case method
+    when "lowercase"
+      return text.downcase
+    when "uppercase"
+      return text.upcase
+    when "capitalize"
+      return text.capitalize
+    end
+  end
+
   def parse(text, event, kv_keys)
     # short circuit parsing if the text does not contain the @value_split
     return kv_keys unless has_value_splitter?(text)
@@ -280,6 +315,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
     text.scan(@scan_re) do |key, v1, v2, v3, v4, v5, v6|
       value = v1 || v2 || v3 || v4 || v5 || v6
       key = @trimkey ? key.gsub(@trimkey_re, "") : key
+      key = @normkey ? norm(key, @normkey) : key
 
       # Bail out as per the values of include_keys and exclude_keys
       next if not include_keys.empty? and not include_keys.include?(key)
@@ -289,6 +325,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
       key = event.sprintf(@prefix) + key
 
       value = @trim ? value.gsub(@trim_re, "") : value
+      value = @norm ? norm(value, @norm) : value
 
       # Bail out if inserting duplicate value in key mapping when unique_values
       # option is set to true.

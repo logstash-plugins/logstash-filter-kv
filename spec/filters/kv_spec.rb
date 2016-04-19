@@ -26,6 +26,66 @@ describe LogStash::Filters::KV do
     end
   end
 
+  describe  "test normalize keys to uppercase and values to lowercase" do
+    config <<-CONFIG
+      filter {
+        kv {
+          normkey => "uppercase"
+          norm => "lowercase"
+        }
+      }
+    CONFIG
+
+    sample "hello = world Foo =Bar BAZ= FIZZ doublequoteD = \"hellO worlD\" Singlequoted= 'Hello World' brAckets =(hello World)" do
+      insist { subject["HELLO"] } == "world"
+      insist { subject["FOO"] } == "bar"
+      insist { subject["BAZ"] } == "fizz"
+      insist { subject["DOUBLEQUOTED"] } == "hello world"
+      insist { subject["SINGLEQUOTED"] } == "hello world"
+      insist { subject["BRACKETS"] } == "hello world"
+    end
+  end
+
+  describe  "test normalize keys to lowercase and values to uppercase" do
+    config <<-CONFIG
+      filter {
+        kv {
+          normkey => "lowercase"
+          norm => "uppercase"
+        }
+      }
+    CONFIG
+
+    sample "Hello = World fOo =bar baz= FIZZ DOUBLEQUOTED = \"hellO worlD\" singlequoted= 'hEllo wOrld' brackets =(HELLO world)" do
+      insist { subject["hello"] } == "WORLD"
+      insist { subject["foo"] } == "BAR"
+      insist { subject["baz"] } == "FIZZ"
+      insist { subject["doublequoted"] } == "HELLO WORLD"
+      insist { subject["singlequoted"] } == "HELLO WORLD"
+      insist { subject["brackets"] } == "HELLO WORLD"
+    end
+  end
+
+  describe  "test capitalize keys and values" do
+    config <<-CONFIG
+      filter {
+        kv {
+          normkey => "capitalize"
+          norm => "capitalize"
+        }
+      }
+    CONFIG
+
+    sample "Hello = World fOo =bar baz= FIZZ DOUBLEQUOTED = \"hellO worlD\" singlequoted= 'hEllo wOrld' brackets =(HELLO world)" do
+      insist { subject["Hello"] } == "World"
+      insist { subject["Foo"] } == "Bar"
+      insist { subject["Baz"] } == "Fizz"
+      insist { subject["Doublequoted"] } == "Hello World"
+      insist { subject["Singlequoted"] } == "Hello World"
+      insist { subject["Brackets"] } == "Hello World"
+    end
+  end
+
   describe  "test spaces attached to the field_split" do
     config <<-CONFIG
       filter {
