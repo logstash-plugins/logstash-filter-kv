@@ -235,7 +235,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
 
   def filter(event)
     kv = Hash.new
-    value = event[@source]
+    value = event.get(@source)
 
     case value
     when nil
@@ -255,9 +255,9 @@ class LogStash::Filters::KV < LogStash::Filters::Base
 
     if @target
       @logger.debug? && @logger.debug("Overwriting existing target field", :target => @target)
-      event[@target] = kv
+      event.set(@target, kv)
     else
-      kv.each{|k, v| event[k] = v}
+      kv.each{|k, v| event.set(k, v)}
     end
 
     filter_matched(event)

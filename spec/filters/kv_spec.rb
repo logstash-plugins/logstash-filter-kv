@@ -15,14 +15,14 @@ describe LogStash::Filters::KV do
     CONFIG
 
     sample "hello=world foo=bar baz=fizz doublequoted=\"hello world\" singlequoted='hello world' bracketsone=(hello world) bracketstwo=[hello world] bracketsthree=<hello world>" do
-      insist { subject["hello"] } == "world"
-      insist { subject["foo"] } == "bar"
-      insist { subject["baz"] } == "fizz"
-      insist { subject["doublequoted"] } == "hello world"
-      insist { subject["singlequoted"] } == "hello world"
-      insist { subject["bracketsone"] } == "hello world"
-      insist { subject["bracketstwo"] } == "hello world"
-      insist { subject["bracketsthree"] } == "hello world"
+      insist { subject.get("hello") } == "world"
+      insist { subject.get("foo") } == "bar"
+      insist { subject.get("baz") } == "fizz"
+      insist { subject.get("doublequoted") } == "hello world"
+      insist { subject.get("singlequoted") } == "hello world"
+      insist { subject.get("bracketsone") } == "hello world"
+      insist { subject.get("bracketstwo") } == "hello world"
+      insist { subject.get("bracketsthree") } == "hello world"
     end
   end
 
@@ -34,12 +34,12 @@ describe LogStash::Filters::KV do
     CONFIG
 
     sample "hello = world foo =bar baz= fizz doublequoted = \"hello world\" singlequoted= 'hello world' brackets =(hello world)" do
-      insist { subject["hello"] } == "world"
-      insist { subject["foo"] } == "bar"
-      insist { subject["baz"] } == "fizz"
-      insist { subject["doublequoted"] } == "hello world"
-      insist { subject["singlequoted"] } == "hello world"
-      insist { subject["brackets"] } == "hello world"
+      insist { subject.get("hello") } == "world"
+      insist { subject.get("foo") } == "bar"
+      insist { subject.get("baz") } == "fizz"
+      insist { subject.get("doublequoted") } == "hello world"
+      insist { subject.get("singlequoted") } == "hello world"
+      insist { subject.get("brackets") } == "hello world"
     end
   end
 
@@ -51,8 +51,8 @@ describe LogStash::Filters::KV do
     CONFIG
 
     sample 'IKE:=Quick\ Mode\ completion IKE\ IDs:=subnet:\ x.x.x.x\ (mask=\ 255.255.255.254)\ and\ host:\ y.y.y.y' do
-      insist { subject["IKE"] } == '=Quick\ Mode\ completion'
-      insist { subject['IKE\ IDs'] } == '=subnet:\ x.x.x.x\ (mask=\ 255.255.255.254)\ and\ host:\ y.y.y.y'
+      insist { subject.get("IKE") } == '=Quick\ Mode\ completion'
+      insist { subject.get('IKE\ IDs') } == '=subnet:\ x.x.x.x\ (mask=\ 255.255.255.254)\ and\ host:\ y.y.y.y'
     end
   end
 
@@ -65,12 +65,12 @@ describe LogStash::Filters::KV do
       CONFIG
 
       sample "hello:=world foo:bar baz=:fizz doublequoted:\"hello world\" singlequoted:'hello world' brackets:(hello world)" do
-        insist { subject["hello"] } == "=world"
-        insist { subject["foo"] } == "bar"
-        insist { subject["baz="] } == "fizz"
-        insist { subject["doublequoted"] } == "hello world"
-        insist { subject["singlequoted"] } == "hello world"
-        insist { subject["brackets"] } == "hello world"
+        insist { subject.get("hello") } == "=world"
+        insist { subject.get("foo") } == "bar"
+        insist { subject.get("baz=") } == "fizz"
+        insist { subject.get("doublequoted") } == "hello world"
+        insist { subject.get("singlequoted") } == "hello world"
+        insist { subject.get("brackets") } == "hello world"
       end
     end
   end
@@ -117,7 +117,7 @@ describe LogStash::Filters::KV do
 
         it "should extract kv" do
           subject.filter(event)
-          expect(event["foo"]).to eq(inner)
+          expect(event.get("foo")).to eq(inner)
         end
 
         it "should short circuit" do
@@ -138,8 +138,8 @@ describe LogStash::Filters::KV do
 
         it "should extract kv" do
           subject.filter(event)
-          expect(event["foo"]).to eq(foo_val)
-          expect(event["[bar][baz]"]).to eq(baz_val)
+          expect(event.get("foo")).to eq(foo_val)
+          expect(event.get("[bar][baz]")).to eq(baz_val)
         end
 
         it "should short circuit" do
@@ -169,12 +169,12 @@ describe LogStash::Filters::KV do
     CONFIG
 
     sample "?hello=world&foo=bar&baz=fizz&doublequoted=\"hello world\"&singlequoted='hello world'&ignoreme&foo12=bar12" do
-      insist { subject["hello"] } == "world"
-      insist { subject["foo"] } == "bar"
-      insist { subject["baz"] } == "fizz"
-      insist { subject["doublequoted"] } == "hello world"
-      insist { subject["singlequoted"] } == "hello world"
-      insist { subject["foo12"] } == "bar12"
+      insist { subject.get("hello") } == "world"
+      insist { subject.get("foo") } == "bar"
+      insist { subject.get("baz") } == "fizz"
+      insist { subject.get("doublequoted") } == "hello world"
+      insist { subject.get("singlequoted") } == "hello world"
+      insist { subject.get("foo12") } == "bar12"
     end
   end
 
@@ -186,8 +186,8 @@ describe LogStash::Filters::KV do
     CONFIG
 
     sample "bracketsone=(hello world) bracketstwo=[hello world]" do
-      insist { subject["bracketsone"] } == "(hello"
-      insist { subject["bracketstwo"] } == "[hello"
+      insist { subject.get("bracketsone") } == "(hello"
+      insist { subject.get("bracketstwo") } == "[hello"
     end
   end
 
@@ -201,10 +201,10 @@ describe LogStash::Filters::KV do
     CONFIG
 
     sample 'IKE="Quick Mode completion" IKE\ IDs = (subnet= x.x.x.x mask= 255.255.255.254 and host=y.y.y.y)' do
-      insist { subject["IKE"] } == 'Quick Mode completion'
-      insist { subject['IKE\ IDs']['subnet'] } == 'x.x.x.x'
-      insist { subject['IKE\ IDs']['mask'] } == '255.255.255.254'
-      insist { subject['IKE\ IDs']['host'] } == 'y.y.y.y'
+      insist { subject.get("IKE") } == 'Quick Mode completion'
+      insist { subject.get('IKE\ IDs')['subnet'] } == 'x.x.x.x'
+      insist { subject.get('IKE\ IDs')['mask'] } == '255.255.255.254'
+      insist { subject.get('IKE\ IDs')['host'] } == 'y.y.y.y'
     end
   end
 
@@ -216,9 +216,9 @@ describe LogStash::Filters::KV do
     CONFIG
 
     sample "field1=test|field2=another test|field3=test3" do
-      insist { subject["field1"] } == "test"
-      insist { subject["field2"] } == "another test"
-      insist { subject["field3"] } == "test3"
+      insist { subject.get("field1") } == "test"
+      insist { subject.get("field2") } == "another test"
+      insist { subject.get("field3") } == "test3"
     end
   end
 
@@ -230,11 +230,11 @@ describe LogStash::Filters::KV do
     CONFIG
 
     sample "hello=world foo=bar baz=fizz doublequoted=\"hello world\" singlequoted='hello world'" do
-      insist { subject["__hello"] } == "world"
-      insist { subject["__foo"] } == "bar"
-      insist { subject["__baz"] } == "fizz"
-      insist { subject["__doublequoted"] } == "hello world"
-      insist { subject["__singlequoted"] } == "hello world"
+      insist { subject.get("__hello") } == "world"
+      insist { subject.get("__foo") } == "bar"
+      insist { subject.get("__baz") } == "fizz"
+      insist { subject.get("__doublequoted") } == "hello world"
+      insist { subject.get("__singlequoted") } == "hello world"
     end
 
   end
@@ -275,8 +275,8 @@ describe LogStash::Filters::KV do
       CONFIG
 
       sample "hello=world" do
-        insist { subject["hello"] } == "world"
-        insist { subject["tags"] }.include?("hello")
+        insist { subject.get("hello") } == "world"
+        insist { subject.get("tags") }.include?("hello")
       end
     end
     context "should not activate when failing" do
@@ -287,7 +287,7 @@ describe LogStash::Filters::KV do
       CONFIG
 
       sample "this is not key value" do
-        insist { subject["tags"] }.nil?
+        insist { subject.get("tags") }.nil?
       end
     end
   end
@@ -301,8 +301,8 @@ describe LogStash::Filters::KV do
       CONFIG
 
       sample "hello=world" do
-        insist { subject["hello"] } == "world"
-        insist { subject["whoa"] } == "fancypants"
+        insist { subject.get("hello") } == "world"
+        insist { subject.get("whoa") } == "fancypants"
       end
     end
 
@@ -314,7 +314,7 @@ describe LogStash::Filters::KV do
       CONFIG
 
       sample "this is not key value" do
-        reject { subject["whoa"] } == "fancypants"
+        reject { subject.get("whoa") } == "fancypants"
       end
     end
   end
@@ -328,12 +328,12 @@ describe LogStash::Filters::KV do
     CONFIG
 
     sample "hello=world foo=bar baz=fizz doublequoted=\"hello world\" singlequoted='hello world'" do
-      insist { subject["kv"]["hello"] } == "world"
-      insist { subject["kv"]["foo"] } == "bar"
-      insist { subject["kv"]["baz"] } == "fizz"
-      insist { subject["kv"]["doublequoted"] } == "hello world"
-      insist { subject["kv"]["singlequoted"] } == "hello world"
-      insist {subject["kv"].count } == 5
+      insist { subject.get("kv")["hello"] } == "world"
+      insist { subject.get("kv")["foo"] } == "bar"
+      insist { subject.get("kv")["baz"] } == "fizz"
+      insist { subject.get("kv")["doublequoted"] } == "hello world"
+      insist { subject.get("kv")["singlequoted"] } == "hello world"
+      insist {subject.get("kv").count } == 5
     end
 
   end
@@ -346,7 +346,7 @@ describe LogStash::Filters::KV do
     CONFIG
 
     sample "hello:world:foo:bar:baz:fizz" do
-      insist { subject["kv"] } == nil
+      insist { subject.get("kv") } == nil
     end
   end
 
@@ -360,11 +360,11 @@ describe LogStash::Filters::KV do
       }
     CONFIG
     sample("data" => "hello=world foo=bar baz=fizz doublequoted=\"hello world\" singlequoted='hello world'") do
-      insist { subject["hello"] } == "world"
-      insist { subject["foo"] } == "bar"
-      insist { subject["baz"] } == "fizz"
-      insist { subject["doublequoted"] } == "hello world"
-      insist { subject["singlequoted"] } == "hello world"
+      insist { subject.get("hello") } == "world"
+      insist { subject.get("foo") } == "bar"
+      insist { subject.get("baz") } == "fizz"
+      insist { subject.get("doublequoted") } == "hello world"
+      insist { subject.get("singlequoted") } == "hello world"
     end
   end
 
@@ -377,11 +377,11 @@ describe LogStash::Filters::KV do
       }
     CONFIG
     sample({"@data" => "hello=world foo=bar baz=fizz doublequoted=\"hello world\" singlequoted='hello world'"}) do
-      insist { subject["hello"] } == "world"
-      insist { subject["foo"] } == "bar"
-      insist { subject["baz"] } == "fizz"
-      insist { subject["doublequoted"] } == "hello world"
-      insist { subject["singlequoted"] } == "hello world"
+      insist { subject.get("hello") } == "world"
+      insist { subject.get("foo") } == "bar"
+      insist { subject.get("baz") } == "fizz"
+      insist { subject.get("doublequoted") } == "hello world"
+      insist { subject.get("singlequoted") } == "hello world"
     end
   end
 
@@ -396,12 +396,12 @@ describe LogStash::Filters::KV do
       }
     CONFIG
     sample("data" => "hello=world foo=bar baz=fizz doublequoted=\"hello world\" singlequoted='hello world'") do
-      insist { subject["kv"]["hello"] } == "world"
-      insist { subject["kv"]["foo"] } == "bar"
-      insist { subject["kv"]["baz"] } == "fizz"
-      insist { subject["kv"]["doublequoted"] } == "hello world"
-      insist { subject["kv"]["singlequoted"] } == "hello world"
-      insist { subject["kv"].count } == 5
+      insist { subject.get("kv")["hello"] } == "world"
+      insist { subject.get("kv")["foo"] } == "bar"
+      insist { subject.get("kv")["baz"] } == "fizz"
+      insist { subject.get("kv")["doublequoted"] } == "hello world"
+      insist { subject.get("kv")["singlequoted"] } == "hello world"
+      insist { subject.get("kv").count } == 5
     end
   end
 
@@ -415,8 +415,8 @@ describe LogStash::Filters::KV do
       }
     CONFIG
     sample "" do
-      insist { subject["non-exisiting-field"] } == nil
-      insist { subject["kv"] } == nil
+      insist { subject.get("non-exisiting-field") } == nil
+      insist { subject.get("kv") } == nil
     end
   end
 
@@ -430,8 +430,8 @@ describe LogStash::Filters::KV do
     CONFIG
 
     sample "hello=world foo=bar baz=fizz doublequoted=\"hello world\" singlequoted='hello world'" do
-      insist { subject["foo"] } == "bar"
-      insist { subject["singlequoted"] } == "hello world"
+      insist { subject.get("foo") } == "bar"
+      insist { subject.get("singlequoted") } == "hello world"
     end
   end
 
@@ -445,9 +445,9 @@ describe LogStash::Filters::KV do
     CONFIG
 
     sample "hello=world foo=bar baz=fizz doublequoted=\"hello world\" singlequoted='hello world'" do
-      insist { subject["hello"] } == "world"
-      insist { subject["baz"] } == "fizz"
-      insist { subject["doublequoted"] } == "hello world"
+      insist { subject.get("hello") } == "world"
+      insist { subject.get("baz") } == "fizz"
+      insist { subject.get("doublequoted") } == "hello world"
     end
   end
 
@@ -462,8 +462,8 @@ describe LogStash::Filters::KV do
     CONFIG
 
     sample "hello=world foo=bar baz=fizz doublequoted=\"hello world\" singlequoted='hello world'" do
-      insist { subject["__foo"] } == "bar"
-      insist { subject["__singlequoted"] } == "hello world"
+      insist { subject.get("__foo") } == "bar"
+      insist { subject.get("__singlequoted") } == "hello world"
     end
   end
 
@@ -478,9 +478,9 @@ describe LogStash::Filters::KV do
     CONFIG
 
     sample "hello=world foo=bar baz=fizz doublequoted=\"hello world\" singlequoted='hello world'" do
-      insist { subject["__hello"] } == "world"
-      insist { subject["__baz"] } == "fizz"
-      insist { subject["__doublequoted"] } == "hello world"
+      insist { subject.get("__hello") } == "world"
+      insist { subject.get("__baz") } == "fizz"
+      insist { subject.get("__doublequoted") } == "hello world"
     end
   end
 
@@ -495,8 +495,8 @@ describe LogStash::Filters::KV do
     CONFIG
 
     sample({"data" => "foo=bar baz=fizz", "key" => "foo"}) do
-      insist { subject["foo"] } == "bar"
-      insist { subject["baz"] } == nil
+      insist { subject.get("foo") } == "bar"
+      insist { subject.get("baz") } == nil
     end
   end
 
@@ -511,8 +511,8 @@ describe LogStash::Filters::KV do
     CONFIG
 
     sample({"data" => "foo=bar baz=fizz", "key" => "foo"}) do
-      insist { subject["foo"] } == nil
-      insist { subject["baz"] } == "fizz"
+      insist { subject.get("foo") } == nil
+      insist { subject.get("baz") } == "fizz"
     end
   end
 
@@ -545,12 +545,12 @@ describe LogStash::Filters::KV do
     CONFIG
 
     sample "hello=world foo=bar baz=fizz doublequoted=\"hello world\" singlequoted='hello world'" do
-      insist { subject["hello"] } == "world"
-      insist { subject["foo"] } == "bar"
-      insist { subject["goo"] } == "yyy"
-      insist { subject["baz"] } == "fizz"
-      insist { subject["doublequoted"] } == "hello world"
-      insist { subject["singlequoted"] } == "hello world"
+      insist { subject.get("hello") } == "world"
+      insist { subject.get("foo") } == "bar"
+      insist { subject.get("goo") } == "yyy"
+      insist { subject.get("baz") } == "fizz"
+      insist { subject.get("doublequoted") } == "hello world"
+      insist { subject.get("singlequoted") } == "hello world"
     end
   end
 
@@ -565,8 +565,8 @@ describe LogStash::Filters::KV do
     CONFIG
 
     sample("happy" => "foo=bar baz=fizz") do
-      insist { subject["[happy][foo]"] } == "bar"
-      insist { subject["[happy][baz]"] } == "fizz"
+      insist { subject.get("[happy][foo]") } == "bar"
+      insist { subject.get("[happy][baz]") } == "fizz"
     end
 
   end
@@ -583,7 +583,7 @@ describe LogStash::Filters::KV do
     CONFIG
 
     sample("source" => "foo=bar&foo=yeah&foo=yeah") do
-      insist { subject["[foo]"] } == ["bar", "yeah"]
+      insist { subject.get("[foo]") } == ["bar", "yeah"]
     end
   end
 
@@ -598,7 +598,7 @@ describe LogStash::Filters::KV do
     CONFIG
 
     sample("source" => "foo=bar&foo=yeah&foo=yeah") do
-      insist { subject["[foo]"] } == ["bar", "yeah", "yeah"]
+      insist { subject.get("[foo]") } == ["bar", "yeah", "yeah"]
     end
   end
 
@@ -623,8 +623,8 @@ describe LogStash::Filters::KV do
     context "key and splitters with no value" do
       it "should ignore the incomplete key/value pairs" do
         subject.filter(event)
-        expect(event["AccountStatus"]).to eq("4")
-        expect(event["IsSuccess"]).to eq("True")
+        expect(event.get("AccountStatus")).to eq("4")
+        expect(event.get("IsSuccess")).to eq("True")
         expect(event.to_hash.keys.sort).to eq(
           ["@timestamp", "@version", "AccountStatus", "IsSuccess", "message"])
       end
