@@ -1,7 +1,7 @@
 Gem::Specification.new do |s|
 
   s.name            = 'logstash-filter-kv'
-  s.version         = '2.0.7'
+  s.version         = '3.0.0'
   s.licenses        = ['Apache License (2.0)']
   s.summary         = "This filter helps automatically parse messages (or specific event fields) which are of the 'foo=bar' variety."
   s.description     = "This gem is a Logstash plugin required to be installed on top of the Logstash core pipeline using $LS_HOME/bin/logstash-plugin install gemname. This gem is not a stand-alone program"
