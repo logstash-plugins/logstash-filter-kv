@@ -62,27 +62,27 @@ class LogStash::Filters::KV < LogStash::Filters::Base
 
 
 
-  # Normalize values to lower case, upper case or capitals.
+  # Transform values to lower case, upper case or capitals.
   #
   # For example, to capitalize all values:
   # [source,ruby]
   #     filter {
   #       kv {
-  #         norm => "capitalize"
+  #         transform_value => "capitalize"
   #       }
   #     }
-  config :norm, :validate => ["lowercase", "uppercase", "capitalize"]
+  config :transform_value, :validate => ["lowercase", "uppercase", "capitalize"]
 
-  # Normalize keys to lower case, upper case or capitals.
+  # Transform keys to lower case, upper case or capitals.
   #
   # For example, to lowercase all keys:
   # [source,ruby]
   #     filter {
   #       kv {
-  #         normkey => "lowercase"
+  #         transform_key => "lowercase"
   #       }
   #     }
-  config :normkey, :validate => ["lowercase", "uppercase", "capitalize"]
+  config :transform_key, :validate => ["lowercase", "uppercase", "capitalize"]
 
   # A string of characters to use as delimiters for parsing out key-value pairs.
   #
@@ -293,7 +293,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
     s =~ @value_split_re
   end
 
-  def norm(text, method)
+  def transform(text, method)
     case method
     when "lowercase"
       return text.downcase
@@ -315,7 +315,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
     text.scan(@scan_re) do |key, v1, v2, v3, v4, v5, v6|
       value = v1 || v2 || v3 || v4 || v5 || v6
       key = @trimkey ? key.gsub(@trimkey_re, "") : key
-      key = @normkey ? norm(key, @normkey) : key
+      key = @transform_key ? transform(key, @transform_key) : key
 
       # Bail out as per the values of include_keys and exclude_keys
       next if not include_keys.empty? and not include_keys.include?(key)
@@ -325,7 +325,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
       key = event.sprintf(@prefix) + key
 
       value = @trim ? value.gsub(@trim_re, "") : value
-      value = @norm ? norm(value, @norm) : value
+      value = @transform_value ? transform(value, @transform_value) : value
 
       # Bail out if inserting duplicate value in key mapping when unique_values
       # option is set to true.
