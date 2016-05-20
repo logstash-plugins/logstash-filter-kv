@@ -1,3 +1,6 @@
+# 2.1.0
+  - Adds :transform_value and :transform_key options to lowercase/upcase or capitalize all keys/values
+
 # 2.0.7
   - With include_brackets enabled, angle brackets (\< and \>) are treated the same as square brackets and parentheses, making it easy to parse strings like "a=\<b\> c=\<d\>".
   - An empty value_split option value now gives a useful error message.
