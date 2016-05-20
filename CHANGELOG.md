@@ -1,3 +1,5 @@
+## 3.1.0
+  - Adds :transform_value and :transform_key options to lowercase/upcase or capitalize all keys/values
 ## 3.0.1
   - Republish all the gems under jruby.
 ## 3.0.0
