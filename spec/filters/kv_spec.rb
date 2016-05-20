@@ -26,63 +26,63 @@ describe LogStash::Filters::KV do
     end
   end
 
-  describe  "test normalize keys to uppercase and values to lowercase" do
+  describe  "test transforming keys to uppercase and values to lowercase" do
     config <<-CONFIG
       filter {
         kv {
-          normkey => "uppercase"
-          norm => "lowercase"
+          transform_key => "uppercase"
+          transform_value => "lowercase"
         }
       }
     CONFIG
 
     sample "hello = world Foo =Bar BAZ= FIZZ doublequoteD = \"hellO worlD\" Singlequoted= 'Hello World' brAckets =(hello World)" do
-      insist { subject["HELLO"] } == "world"
-      insist { subject["FOO"] } == "bar"
-      insist { subject["BAZ"] } == "fizz"
-      insist { subject["DOUBLEQUOTED"] } == "hello world"
-      insist { subject["SINGLEQUOTED"] } == "hello world"
-      insist { subject["BRACKETS"] } == "hello world"
+      insist { subject.get("HELLO") } == "world"
+      insist { subject.get("FOO") } == "bar"
+      insist { subject.get("BAZ") } == "fizz"
+      insist { subject.get("DOUBLEQUOTED") } == "hello world"
+      insist { subject.get("SINGLEQUOTED") } == "hello world"
+      insist { subject.get("BRACKETS") } == "hello world"
     end
   end
 
-  describe  "test normalize keys to lowercase and values to uppercase" do
+  describe  "test transforming keys to lowercase and values to uppercase" do
     config <<-CONFIG
       filter {
         kv {
-          normkey => "lowercase"
-          norm => "uppercase"
+          transform_key => "lowercase"
+          transform_value => "uppercase"
         }
       }
     CONFIG
 
     sample "Hello = World fOo =bar baz= FIZZ DOUBLEQUOTED = \"hellO worlD\" singlequoted= 'hEllo wOrld' brackets =(HELLO world)" do
-      insist { subject["hello"] } == "WORLD"
-      insist { subject["foo"] } == "BAR"
-      insist { subject["baz"] } == "FIZZ"
-      insist { subject["doublequoted"] } == "HELLO WORLD"
-      insist { subject["singlequoted"] } == "HELLO WORLD"
-      insist { subject["brackets"] } == "HELLO WORLD"
+      insist { subject.get("hello") } == "WORLD"
+      insist { subject.get("foo") } == "BAR"
+      insist { subject.get("baz") } == "FIZZ"
+      insist { subject.get("doublequoted") } == "HELLO WORLD"
+      insist { subject.get("singlequoted") } == "HELLO WORLD"
+      insist { subject.get("brackets") } == "HELLO WORLD"
     end
   end
 
-  describe  "test capitalize keys and values" do
+  describe  "test transforming keys and values to capitals" do
     config <<-CONFIG
       filter {
         kv {
-          normkey => "capitalize"
-          norm => "capitalize"
+          transform_key => "capitalize"
+          transform_value => "capitalize"
         }
       }
     CONFIG
 
     sample "Hello = World fOo =bar baz= FIZZ DOUBLEQUOTED = \"hellO worlD\" singlequoted= 'hEllo wOrld' brackets =(HELLO world)" do
-      insist { subject["Hello"] } == "World"
-      insist { subject["Foo"] } == "Bar"
-      insist { subject["Baz"] } == "Fizz"
-      insist { subject["Doublequoted"] } == "Hello world"
-      insist { subject["Singlequoted"] } == "Hello world"
-      insist { subject["Brackets"] } == "Hello world"
+      insist { subject.get("Hello") } == "World"
+      insist { subject.get("Foo") } == "Bar"
+      insist { subject.get("Baz") } == "Fizz"
+      insist { subject.get("Doublequoted") } == "Hello world"
+      insist { subject.get("Singlequoted") } == "Hello world"
+      insist { subject.get("Brackets") } == "Hello world"
     end
   end
 
