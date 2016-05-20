@@ -29,6 +29,11 @@ require "logstash/namespace"
 class LogStash::Filters::KV < LogStash::Filters::Base
   config_name "kv"
 
+  # Constants used for transform check
+  TRANSFORM_LOWERCASE_KEY = "lowercase"
+  TRANSFORM_UPPERCASE_KEY = "uppercase"
+  TRANSFORM_CAPITALIZE_KEY = "capitalize"
+
   # A string of characters to trim from the value. This is useful if your
   # values are wrapped in brackets or are terminated with commas (like postfix
   # logs).
@@ -60,8 +65,6 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   #     }
   config :trimkey, :validate => :string
 
-
-
   # Transform values to lower case, upper case or capitals.
   #
   # For example, to capitalize all values:
@@ -71,7 +74,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   #         transform_value => "capitalize"
   #       }
   #     }
-  config :transform_value, :validate => ["lowercase", "uppercase", "capitalize"]
+  config :transform_value, :validate => [TRANSFORM_LOWERCASE_KEY, TRANSFORM_UPPERCASE_KEY, TRANSFORM_CAPITALIZE_KEY]
 
   # Transform keys to lower case, upper case or capitals.
   #
@@ -82,7 +85,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   #         transform_key => "lowercase"
   #       }
   #     }
-  config :transform_key, :validate => ["lowercase", "uppercase", "capitalize"]
+  config :transform_key, :validate => [TRANSFORM_LOWERCASE_KEY, TRANSFORM_UPPERCASE_KEY, TRANSFORM_CAPITALIZE_KEY]
 
   # A string of characters to use as delimiters for parsing out key-value pairs.
   #
@@ -295,11 +298,11 @@ class LogStash::Filters::KV < LogStash::Filters::Base
 
   def transform(text, method)
     case method
-    when "lowercase"
+    when TRANSFORM_LOWERCASE_KEY
       return text.downcase
-    when "uppercase"
+    when TRANSFORM_UPPERCASE_KEY
       return text.upcase
-    when "capitalize"
+    when TRANSFORM_CAPITALIZE_KEY
       return text.capitalize
     end
   end
