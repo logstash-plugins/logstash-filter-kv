@@ -190,7 +190,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   # one unique key/value pair will be preserved.
   #
   # For example, consider a source like `from=me from=me`. `[from]` will map to
-  # an Array with two elements: `["me", "me"]`. to only keep unique key/value pairs,
+  # an Array with two elements: `["me", "me"]`. To only keep unique key/value pairs,
   # you could use this configuration:
   # [source,ruby]
   #     filter {
