@@ -250,8 +250,8 @@ class LogStash::Filters::KV < LogStash::Filters::Base
       )
     end
 
-    @trim_re = Regexp.new("[#{@trim}]") if @trim
-    @trimkey_re = Regexp.new("[#{@trimkey}]") if @trimkey
+    @trim_re = Regexp.new("^[#{@trim}]|[#{@trim}]$") if @trim
+    @trimkey_re = Regexp.new("^[#{@trimkey}]|[#{@trimkey}]$") if @trimkey
 
     valueRxString = "(?:\"([^\"]+)\"|'([^']+)'"
     valueRxString += "|\\(([^\\)]+)\\)|\\[([^\\]]+)\\]|<([^>]+)>" if @include_brackets

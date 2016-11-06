@@ -691,6 +691,36 @@ describe LogStash::Filters::KV do
     end
   end
 
+  describe "trim only leading and trailing spaces in keys/values (reported in #10)" do
+    subject do
+      plugin = LogStash::Filters::KV.new(options)
+      plugin.register
+      plugin
+    end
+
+    let(:message) { "key1= value1 with spaces | key2 with spaces =value2" }
+    let(:data) { {"message" => message} }
+    let(:event) { LogStash::Event.new(data) }
+    let(:options) {
+      {
+        "field_split" => "\|",
+        "value_split" => "=",
+        "trim" => " ",
+        "trimkey" => " "
+      }
+    }
+
+    context "key and value with leading, trailing and middle spaces" do
+      it "should trim only leading and trailing spaces" do
+        subject.filter(event)
+        expect(event.get("key1")).to eq("value1 with spaces")
+        expect(event.get("key2 with spaces")).to eq("value2")
+        expect(event.to_hash.keys.sort).to eq(
+          ["@timestamp", "@version", "key1", "key2 with spaces", "message"])
+      end
+    end
+  end
+
   describe "an empty value_split option should be reported" do
     config <<-CONFIG
       filter {
