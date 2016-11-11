@@ -226,6 +226,57 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   #
   config :include_brackets, :validate => :boolean, :default => true
 
+  # A boolean specifying whether fields with empty values should be omitted
+  # from the event. If false, the value of the field will be empty string.
+  # [source,ruby]
+  #     filter {
+  #       kv {
+  #         omit_empty_fields => false
+  #         target => "greek"
+  #       }
+  #     }
+  #
+  # For example, the result of this line:
+  # `a= b=Beta c= d=Delta`
+  #
+  # will be:
+  #
+  # * [greek][a]:
+  # * [greek][b]: Beta
+  # * [greek][c]:
+  # * [greek][d]: Delta
+  #
+  # instead of:
+  #
+  # * [greek][b]: Beta
+  # * [greek][d]: Delta
+  #
+  # *NOTE:* if `omit_empty_fields` is false and `trim_value_split` is true,
+  # neither `field_split` nor `value_split` may contain a space.
+  #
+  config :omit_empty_fields, :validate => :boolean, :default => true
+
+  # A boolean specifying whether spaces around the value_split should be ignored.
+  # [source,ruby]
+  #     filter {
+  #       kv {
+  #         trim_value_split => true
+  #       }
+  #     }
+
+  # For example, the result of this line:
+  # `a =  b`
+  #
+  # will be: `"a" => "b"` instead of `"a " => "  b"`
+  #
+  # It's useful for this to be false when `omit_empty_fields` fields is false
+  # while using a space for either `field_split` or `value_split`
+
+  # *NOTE:* if `omit_empty_fields` is false and `trim_value_split` is true,
+  # neither `field_split` nor `value_split` may contain a space.
+  #
+  config :trim_value_split, :validate => :boolean, :default => true
+
   # A boolean specifying whether to drill down into values
   # and recursively get more key-value pairs from it.
   # The extra key-value pairs will be stored as subkeys of the root key.
@@ -250,13 +301,31 @@ class LogStash::Filters::KV < LogStash::Filters::Base
       )
     end
 
+    if !@omit_empty_fields && @trim_value_split && (@field_split.include?(' ') || @value_split.include?(' '))
+      raise LogStash::ConfigurationError, I18n.t(
+        "logstash.agent.configuration.invalid_plugin_register",
+        :plugin => "filter",
+        :type => "kv",
+        :error => "Neither configuration option 'field_split' or 'value_split' may not contain a space if 'omit_empty_fields' is false and 'trim_value_split' is true"
+      )
+    end
+
     @trim_re = Regexp.new("[#{@trim}]") if @trim
     @trimkey_re = Regexp.new("[#{@trimkey}]") if @trimkey
 
-    valueRxString = "(?:\"([^\"]+)\"|'([^']+)'"
-    valueRxString += "|\\(([^\\)]+)\\)|\\[([^\\]]+)\\]|<([^>]+)>" if @include_brackets
-    valueRxString += "|((?:\\\\ |[^" + @field_split + "])+))"
-    @scan_re = Regexp.new("((?:\\\\ |[^" + @field_split + @value_split + "])+)\s*[" + @value_split + "]\s*" + valueRxString)
+    operator = @omit_empty_fields ? '+' : '*'
+
+    # strip quotes
+    value_rx_string =  %Q{(?:"([^"]#{operator})"|'([^']#{operator})'}
+    # strip brakcets
+    value_rx_string += %Q{|\\(([^\\)]#{operator})\\)|\\[([^\\]]#{operator})\\]|<([^>]#{operator})>} if @include_brackets
+    # match space-escaped and "no field_split" sequences
+    value_rx_string += %Q{|((?:\\\\ |[^#{field_split}])#{operator}))}
+
+    # The value_split and maybe padded spaces around it
+    trim_value_split_rx = "#{@trim_value_split ? "\s*" : ""}[#{@value_split}]#{@trim_value_split ? "\s*" : ""}"
+
+    @scan_re = Regexp.new("((?:\\\\ |[^#{@field_split}#{@value_split}])+)#{trim_value_split_rx}#{value_rx_string}")
     @value_split_re = /[#{@value_split}]/
   end
 
@@ -317,6 +386,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
 
     text.scan(@scan_re) do |key, v1, v2, v3, v4, v5, v6|
       value = v1 || v2 || v3 || v4 || v5 || v6
+      value = "" if value.nil?
       key = @trimkey ? key.gsub(@trimkey_re, "") : key
       key = @transform_key ? transform(key, @transform_key) : key
 

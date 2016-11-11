@@ -251,6 +251,148 @@ describe LogStash::Filters::KV do
     end
   end
 
+  describe "test omit_empty_fields is true, include_brackets is false with all empty values" do
+    config <<-CONFIG
+      filter {
+        kv { omit_empty_fields => false include_brackets => "false" field_split => "," value_split => "#" }
+      }
+    CONFIG
+
+    sample "a#,b#,c#" do
+      insist { subject.get("a") } == ""
+      insist { subject.get("b") } == ""
+      insist { subject.get("c") } == ""
+    end
+  end
+
+  describe "test omit_empty_fields is true, include_brackets is false, trim_value_split is false with all empty values" do
+    config <<-CONFIG
+      filter {
+        kv { omit_empty_fields => false include_brackets => "false" field_split => "," trim_value_split => "false" value_split => "#" }
+      }
+    CONFIG
+
+    sample "a#,b#,c#" do
+      insist { subject.get("a") } == ""
+      insist { subject.get("b") } == ""
+      insist { subject.get("c") } == ""
+    end
+  end
+
+  describe "test omit_empty_fields is true, include_brackets is false with all empty values and default delimiter" do
+    config <<-CONFIG
+      filter {
+        kv { omit_empty_fields => false include_brackets => "false" }
+      }
+    CONFIG
+
+    sample "a= b= c=" do
+      insist { subject }.raises(LogStash::ConfigurationError)
+    end
+  end
+
+  describe "test omit_empty_fields is true, include_brackets is false, trim_value_split is false with all empty values and default delimiter" do
+    config <<-CONFIG
+      filter {
+        kv {
+          omit_empty_fields => false
+          include_brackets => false
+          trim_value_split => false
+        }
+      }
+    CONFIG
+
+    sample "a= b= c=" do
+      insist { subject.get("a") } == ""
+      insist { subject.get("b") } == ""
+      insist { subject.get("c") } == ""
+    end
+  end
+
+  describe "test omit_empty_fields is true, include_brackets is false with some values" do
+    config <<-CONFIG
+      filter {
+        kv { omit_empty_fields => "false" include_brackets => "false" field_split => "," value_split => "=" }
+      }
+    CONFIG
+
+    sample "a=alpha,b=,c=gamma" do
+      insist { subject.get("a") } == "alpha"
+      insist { subject.get("b") } == ""
+      insist { subject.get("c") } == "gamma"
+    end
+  end
+
+  describe "test omit_empty_fields is true, include_brackets is true with all empty values, no found brackets" do
+    config <<-CONFIG
+      filter {
+        kv { omit_empty_fields => "false" include_brackets => "true" field_split => "," value_split => "=" }
+      }
+    CONFIG
+
+    sample "a=,b=,c=" do
+      insist { subject.get("a") } == ""
+      insist { subject.get("b") } == ""
+      insist { subject.get("c") } == ""
+    end
+  end
+
+  describe "test omit_empty_fields is true, include_brackets is true with all empty values, all found brackets" do
+    config <<-CONFIG
+      filter {
+        kv { omit_empty_fields => "false" include_brackets => "true" field_split => "," value_split => "=" }
+      }
+    CONFIG
+
+    sample "a=[],b=<>,c=()" do
+      insist { subject.get("a") } == ""
+      insist { subject.get("b") } == ""
+      insist { subject.get("c") } == ""
+    end
+  end
+
+  describe "test omit_empty_fields is true, include_brackets is false with all empty values, all found brackets" do
+    config <<-CONFIG
+      filter {
+        kv { omit_empty_fields => "false" include_brackets => "false" field_split => "," value_split => "=" }
+      }
+    CONFIG
+
+    sample "a=[],b=<>,c=()" do
+      insist { subject.get("a") } == "[]"
+      insist { subject.get("b") } == "<>"
+      insist { subject.get("c") } == "()"
+    end
+  end
+
+  describe "test omit_empty_fields is true, include_brackets is true with some values, some found brackets" do
+    config <<-CONFIG
+      filter {
+        kv { omit_empty_fields => "false" include_brackets => "true" field_split => "," value_split => "=" }
+      }
+    CONFIG
+
+    sample "a=(alpha),b=,c=gamma" do
+      insist { subject.get("a") } == "alpha"
+      insist { subject.get("b") } == ""
+      insist { subject.get("c") } == "gamma"
+    end
+  end
+
+  describe "test omit_empty_fields is true, include_brackets is true with some values, some found brackets, escaped spaces" do
+    config <<-CONFIG
+      filter {
+        kv { omit_empty_fields => "false" include_brackets => "true" field_split => "," value_split => "=" }
+      }
+    CONFIG
+
+    sample %q{a=(alpha),b=,c=gamma\ world} do
+      insist { subject.get("a") } == "alpha"
+      insist { subject.get("b") } == ""
+      insist { subject.get("c") } == "gamma\\ world"
+    end
+  end
+
   describe "test recursive" do
     config <<-CONFIG
       filter {
@@ -680,13 +822,43 @@ describe LogStash::Filters::KV do
       }
     }
 
-    context "key and splitters with no value" do
+    context "key and splitters with no value, omit_empty_fields is true" do
       it "should ignore the incomplete key/value pairs" do
         subject.filter(event)
         expect(event.get("AccountStatus")).to eq("4")
         expect(event.get("IsSuccess")).to eq("True")
         expect(event.to_hash.keys.sort).to eq(
           ["@timestamp", "@version", "AccountStatus", "IsSuccess", "message"])
+      end
+    end
+  end
+
+  describe "keys without values (reported in #22), omit_empty_fields is false," do
+    subject do
+      plugin = LogStash::Filters::KV.new(options)
+      plugin.register
+      plugin
+    end
+
+    let(:message) { "AccountStatus:=4\r\nAdditionalInformation\r\n\r\nCode:=\r\nHttpStatusCode=\r\nIsSuccess=True\r\nMessage:\r\n" }
+    let(:data) { {"message" => message} }
+    let(:event) { LogStash::Event.new(data) }
+    let(:options) {
+      {
+        "field_split" => "\r\n",
+        "value_split" => "=",
+        "trimkey" => ":",
+        "omit_empty_fields" => false
+      }
+    }
+
+    context "key and splitters with no value" do
+      it "should ignore the incomplete key/value pairs" do
+        subject.filter(event)
+        expect(event.get("AccountStatus")).to eq("4")
+        expect(event.get("IsSuccess")).to eq("True")
+        expect(event.to_hash.keys.sort).to eq(
+          ["@timestamp", "@version", "AccountStatus", "Code", "HttpStatusCode", "IsSuccess", "message"])
       end
     end
   end
