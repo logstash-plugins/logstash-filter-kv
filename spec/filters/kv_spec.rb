@@ -686,7 +686,7 @@ describe LogStash::Filters::KV do
         expect(event.get("AccountStatus")).to eq("4")
         expect(event.get("IsSuccess")).to eq("True")
         expect(event.to_hash.keys.sort).to eq(
-          ["@timestamp", "@version", "AccountStatus", "IsSuccess", "message"])
+          ["@timestamp", "@version", "AccountStatus", "IsSuccess", "message", "tags"])
       end
     end
   end
@@ -716,7 +716,7 @@ describe LogStash::Filters::KV do
         expect(event.get("key1")).to eq("value1 with spaces")
         expect(event.get("key2 with spaces")).to eq("value2")
         expect(event.to_hash.keys.sort).to eq(
-          ["@timestamp", "@version", "key1", "key2 with spaces", "message"])
+          ["@timestamp", "@version", "key1", "key2 with spaces", "message", "tags"])
       end
     end
   end
