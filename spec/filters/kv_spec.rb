@@ -676,7 +676,7 @@ describe LogStash::Filters::KV do
       {
         "field_split" => "\r\n",
         "value_split" => " ",
-        "trimkey" => ":"
+        "trim_key" => ":"
       }
     }
 
@@ -705,8 +705,8 @@ describe LogStash::Filters::KV do
       {
         "field_split" => "\|",
         "value_split" => "=",
-        "trim" => " ",
-        "trimkey" => " "
+        "trim_value" => " ",
+        "trim_key" => " "
       }
     }
 
