@@ -41,14 +41,16 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   # These characters form a regex character class and thus you must escape special regex
   # characters like `[` or `]` using `\`.
   #
-  # For example, to strip `<`, `>`, `[`, `]` and `,` characters from values:
+  # Only leading and trailing characters are trimed from the value.
+  #
+  # For example, to trim `<`, `>`, `[`, `]` and `,` characters from values:
   # [source,ruby]
   #     filter {
   #       kv {
-  #         trim => "<>\[\],"
+  #         trim_value => "<>\[\],"
   #       }
   #     }
-  config :trim, :validate => :string
+  config :trim_value, :validate => :string
 
   # A string of characters to trim from the key. This is useful if your
   # keys are wrapped in brackets or start with space.
@@ -56,14 +58,16 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   # These characters form a regex character class and thus you must escape special regex
   # characters like `[` or `]` using `\`.
   #
-  # For example, to strip `<` `>` `[` `]` and `,` characters from keys:
+  # Only leading and trailing characters are trimed from the key.
+  #
+  # For example, to trim `<` `>` `[` `]` and `,` characters from keys:
   # [source,ruby]
   #     filter {
   #       kv {
-  #         trimkey => "<>\[\],"
+  #         trim_key => "<>\[\],"
   #       }
   #     }
-  config :trimkey, :validate => :string
+  config :trim_key, :validate => :string
 
   # Transform values to lower case, upper case or capitals.
   #
@@ -250,8 +254,8 @@ class LogStash::Filters::KV < LogStash::Filters::Base
       )
     end
 
-    @trim_re = Regexp.new("^[#{@trim}]|[#{@trim}]$") if @trim
-    @trimkey_re = Regexp.new("^[#{@trimkey}]|[#{@trimkey}]$") if @trimkey
+    @trim_value_re = Regexp.new("^[#{@trim_value}]|[#{@trim_value}]$") if @trim_value
+    @trim_key_re = Regexp.new("^[#{@trim_key}]|[#{@trim_key}]$") if @trim_key
 
     valueRxString = "(?:\"([^\"]+)\"|'([^']+)'"
     valueRxString += "|\\(([^\\)]+)\\)|\\[([^\\]]+)\\]|<([^>]+)>" if @include_brackets
@@ -317,7 +321,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
 
     text.scan(@scan_re) do |key, v1, v2, v3, v4, v5, v6|
       value = v1 || v2 || v3 || v4 || v5 || v6
-      key = @trimkey ? key.gsub(@trimkey_re, "") : key
+      key = @trim_key ? key.gsub(@trim_key_re, "") : key
       key = @transform_key ? transform(key, @transform_key) : key
 
       # Bail out as per the values of include_keys and exclude_keys
@@ -327,7 +331,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
 
       key = event.sprintf(@prefix) + key
 
-      value = @trim ? value.gsub(@trim_re, "") : value
+      value = @trim_value ? value.gsub(@trim_value_re, "") : value
       value = @transform_value ? transform(value, @transform_value) : value
 
       # Bail out if inserting duplicate value in key mapping when unique_values
