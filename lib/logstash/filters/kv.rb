@@ -69,6 +69,38 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   #     }
   config :trim_key, :validate => :string
 
+  # A string of characters to remove from the value.
+  #
+  # These characters form a regex character class and thus you must escape special regex
+  # characters like `[` or `]` using `\`.
+  #
+  # Contrary to trim option, all characters are removed from the value, whatever their position.
+  #
+  # For example, to remove `<`, `>`, `[`, `]` and `,` characters from values:
+  # [source,ruby]
+  #     filter {
+  #       kv {
+  #         remove_char_value => "<>\[\],"
+  #       }
+  #     }
+  config :remove_char_value, :validate => :string
+
+  # A string of characters to remove from the key.
+  #
+  # These characters form a regex character class and thus you must escape special regex
+  # characters like `[` or `]` using `\`.
+  #
+  # Contrary to trim option, all characters are removed from the key, whatever their position.
+  #
+  # For example, to remove `<` `>` `[` `]` and `,` characters from keys:
+  # [source,ruby]
+  #     filter {
+  #       kv {
+  #         remove_char_key => "<>\[\],"
+  #       }
+  #     }
+  config :remove_char_key, :validate => :string
+
   # Transform values to lower case, upper case or capitals.
   #
   # For example, to capitalize all values:
@@ -257,6 +289,9 @@ class LogStash::Filters::KV < LogStash::Filters::Base
     @trim_value_re = Regexp.new("^[#{@trim_value}]|[#{@trim_value}]$") if @trim_value
     @trim_key_re = Regexp.new("^[#{@trim_key}]|[#{@trim_key}]$") if @trim_key
 
+    @remove_char_value_re = Regexp.new("[#{@remove_char_value}]") if @remove_char_value
+    @remove_char_key_re = Regexp.new("[#{@remove_char_key}]") if @remove_char_key
+
     valueRxString = "(?:\"([^\"]+)\"|'([^']+)'"
     valueRxString += "|\\(([^\\)]+)\\)|\\[([^\\]]+)\\]|<([^>]+)>" if @include_brackets
     valueRxString += "|((?:\\\\ |[^" + @field_split + "])+))"
@@ -322,6 +357,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
     text.scan(@scan_re) do |key, v1, v2, v3, v4, v5, v6|
       value = v1 || v2 || v3 || v4 || v5 || v6
       key = @trim_key ? key.gsub(@trim_key_re, "") : key
+      key = @remove_char_key ? key.gsub(@remove_char_key_re, "") : key
       key = @transform_key ? transform(key, @transform_key) : key
 
       # Bail out as per the values of include_keys and exclude_keys
@@ -332,6 +368,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
       key = event.sprintf(@prefix) + key
 
       value = @trim_value ? value.gsub(@trim_value_re, "") : value
+      value = @remove_char_value ? value.gsub(@remove_char_value_re, "") : value
       value = @transform_value ? transform(value, @transform_value) : value
 
       # Bail out if inserting duplicate value in key mapping when unique_values

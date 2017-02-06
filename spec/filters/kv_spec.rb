@@ -691,7 +691,7 @@ describe LogStash::Filters::KV do
     end
   end
 
-  describe "trim only leading and trailing spaces in keys/values (reported in #10)" do
+  describe "trim_key/trim_value options : trim only leading and trailing spaces in keys/values (reported in #10)" do
     subject do
       plugin = LogStash::Filters::KV.new(options)
       plugin.register
@@ -717,6 +717,36 @@ describe LogStash::Filters::KV do
         expect(event.get("key2 with spaces")).to eq("value2")
         expect(event.to_hash.keys.sort).to eq(
           ["@timestamp", "@version", "key1", "key2 with spaces", "message", "tags"])
+      end
+    end
+  end
+
+  describe "remove_char_key/remove_char_value options : remove all characters in keys/values whatever their position" do
+    subject do
+      plugin = LogStash::Filters::KV.new(options)
+      plugin.register
+      plugin
+    end
+  
+    let(:message) { "key1= value1 with spaces | key2 with spaces =value2" }
+    let(:data) { {"message" => message} }
+    let(:event) { LogStash::Event.new(data) }
+    let(:options) {
+      {
+        "field_split" => "\|",
+        "value_split" => "=",
+        "remove_char_value" => " ",
+        "remove_char_key" => " "
+      }
+    }
+  
+    context "key and value with leading, trailing and middle spaces" do
+      it "should remove all spaces" do
+        subject.filter(event)
+        expect(event.get("key1")).to eq("value1withspaces")
+        expect(event.get("key2withspaces")).to eq("value2")
+        expect(event.to_hash.keys.sort).to eq(
+          ["@timestamp", "@version", "key1", "key2withspaces", "message", "tags"])
       end
     end
   end
