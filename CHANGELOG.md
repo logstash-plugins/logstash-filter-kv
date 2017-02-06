@@ -1,5 +1,10 @@
+## 4.0.0
+  - breaking: trim and trimkey options are renamed to trim_value and trim_key
+  - bugfix: trim_value and trim_key options now remove only leading and trailing characters (#10)
+  - feature: new options remove_char_value and remove_char_key to remove all characters from keys/values whatever their position
+
 ## 3.1.1
-  - Relax constraint on logstash-core-plugin-api to >= 1.60 <= 2.99
+  - internal,deps: Relax constraint on logstash-core-plugin-api to >= 1.60 <= 2.99
 
 ## 3.1.0
   - Adds :transform_value and :transform_key options to lowercase/upcase or capitalize all keys/values
