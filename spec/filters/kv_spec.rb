@@ -669,7 +669,16 @@ describe LogStash::Filters::KV do
       plugin
     end
 
-    let(:message) { "AccountStatus: 4\r\nAdditionalInformation\r\n\r\nCode: \r\nHttpStatusCode: \r\nIsSuccess: True\r\nMessage: \r\n" }
+    let(:f1) { "AccountStatus" }
+    let(:v1) { "4" }
+    let(:f2) { "AdditionalInformation" }
+    let(:f3) { "Code" }
+    let(:f4) { "HttpStatusCode" }
+    let(:f5) { "IsSuccess" }
+    let(:v5) { "True" }
+    let(:f6) { "Message" }
+
+    let(:message) { "#{f1}: #{v1}\r\n#{f2}\r\n\r\n#{f3}: \r\n#{f4}: \r\n#{f5}: #{v5}\r\n#{f6}: \r\n" }
     let(:data) { {"message" => message} }
     let(:event) { LogStash::Event.new(data) }
     let(:options) {
@@ -683,10 +692,12 @@ describe LogStash::Filters::KV do
     context "key and splitters with no value" do
       it "should ignore the incomplete key/value pairs" do
         subject.filter(event)
-        expect(event.get("AccountStatus")).to eq("4")
-        expect(event.get("IsSuccess")).to eq("True")
-        expect(event.to_hash.keys.sort).to eq(
-          ["@timestamp", "@version", "AccountStatus", "IsSuccess", "message", "tags"])
+        expect(event.get(f1)).to eq(v1)
+        expect(event.get(f5)).to eq(v5)
+        expect(event.include?(f2)).to be false
+        expect(event.include?(f3)).to be false
+        expect(event.include?(f4)).to be false
+        expect(event.include?(f6)).to be false
       end
     end
   end
@@ -715,8 +726,6 @@ describe LogStash::Filters::KV do
         subject.filter(event)
         expect(event.get("key1")).to eq("value1 with spaces")
         expect(event.get("key2 with spaces")).to eq("value2")
-        expect(event.to_hash.keys.sort).to eq(
-          ["@timestamp", "@version", "key1", "key2 with spaces", "message", "tags"])
       end
     end
   end
@@ -745,8 +754,6 @@ describe LogStash::Filters::KV do
         subject.filter(event)
         expect(event.get("key1")).to eq("value1withspaces")
         expect(event.get("key2withspaces")).to eq("value2")
-        expect(event.to_hash.keys.sort).to eq(
-          ["@timestamp", "@version", "key1", "key2withspaces", "message", "tags"])
       end
     end
   end
