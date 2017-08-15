@@ -1,3 +1,6 @@
+## 4.0.2
+  - Fix some documentation issues
+
 ## 4.0.0
   - breaking: trim and trimkey options are renamed to trim_value and trim_key
   - bugfix: trim_value and trim_key options now remove only leading and trailing characters (#10)
