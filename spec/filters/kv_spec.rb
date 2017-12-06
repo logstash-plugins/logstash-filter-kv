@@ -709,7 +709,7 @@ describe LogStash::Filters::KV do
       plugin
     end
 
-    let(:message) { "key1= value1 with spaces | key2 with spaces =value2" }
+    let(:message) { "key1=  value1 with spaces    |  key2 with spaces  =value2" }
     let(:data) { {"message" => message} }
     let(:event) { LogStash::Event.new(data) }
     let(:options) {
