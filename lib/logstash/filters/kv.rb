@@ -123,7 +123,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   #     }
   config :transform_key, :validate => [TRANSFORM_LOWERCASE_KEY, TRANSFORM_UPPERCASE_KEY, TRANSFORM_CAPITALIZE_KEY]
 
-  # A string of characters to use as delimiters for parsing out key-value pairs.
+  # A string of characters to use as single-character field delimiters for parsing out key-value pairs.
   #
   # These characters form a regex character class and thus you must escape special regex
   # characters like `[` or `]` using `\`.
@@ -149,8 +149,25 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   # * `ss: 12345`
   config :field_split, :validate => :string, :default => ' '
 
+  # A regex expression to use as field delimiter for parsing out key-value pairs.
+  # Useful to define multi-character field delimiters.
+  # Setting the field_split_pattern options will take precedence over the field_split option.
+  #
+  # Note that you should avoid using captured groups in your regex and you should be
+  # cautious with lookaheads or lookbehinds and positional anchors.
+  #
+  # For example, to split fields on a repetition of one or more colons
+  # `k1=v1:k2=v2::k3=v3:::k4=v4`:
+  # [source,ruby]
+  #     filter { kv { field_split_pattern => ":+" } }
+  #
+  # To split fields on a regex character that need escaping like the plus sign
+  # `k1=v1++k2=v2++k3=v3++k4=v4`:
+  # [source,ruby]
+  #     filter { kv { field_split_pattern => "\\+\\+" } }
+  config :field_split_pattern, :validate => :string
 
-  # A non-empty string of characters to use as delimiters for identifying key-value relations.
+  # A non-empty string of characters to use as single-character value delimiters for parsing out key-value pairs.
   #
   # These characters form a regex character class and thus you must escape special regex
   # characters like `[` or `]` using `\`.
@@ -160,6 +177,16 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   # [source,ruby]
   #     filter { kv { value_split => ":" } }
   config :value_split, :validate => :string, :default => '='
+
+  # A regex expression to use as value delimiter for parsing out key-value pairs.
+  # Useful to define multi-character value delimiters.
+  # Setting the value_split_pattern options will take precedence over the value_split option.
+  #
+  # Note that you should avoid using captured groups in your regex and you should be
+  # cautious with lookaheads or lookbehinds and positional anchors.
+  #
+  # See field_split_pattern for examples.
+  config :value_split_pattern, :validate => :string
 
   # A string to prepend to all of the extracted keys.
   #
@@ -279,10 +306,28 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   def register
     if @value_split.empty?
       raise LogStash::ConfigurationError, I18n.t(
-        "logstash.agent.configuration.invalid_plugin_register",
+        "logstash.runner.configuration.invalid_plugin_register",
         :plugin => "filter",
         :type => "kv",
         :error => "Configuration option 'value_split' must be a non-empty string"
+      )
+    end
+
+    if @field_split_pattern && @field_split_pattern.empty?
+      raise LogStash::ConfigurationError, I18n.t(
+          "logstash.runner.configuration.invalid_plugin_register",
+          :plugin => "filter",
+          :type => "kv",
+          :error => "Configuration option 'field_split_pattern' must be a non-empty string"
+      )
+    end
+
+    if @value_split_pattern && @value_split_pattern.empty?
+      raise LogStash::ConfigurationError, I18n.t(
+          "logstash.runner.configuration.invalid_plugin_register",
+          :plugin => "filter",
+          :type => "kv",
+          :error => "Configuration option 'value_split_pattern' must be a non-empty string"
       )
     end
 
@@ -292,8 +337,8 @@ class LogStash::Filters::KV < LogStash::Filters::Base
     @remove_char_value_re = Regexp.new("[#{@remove_char_value}]") if @remove_char_value
     @remove_char_key_re = Regexp.new("[#{@remove_char_key}]") if @remove_char_key
 
-    field_split = /[#{@field_split}]/ # TODO: support multi-char splitters by replacing this regexp
-    value_split = /[#{@value_split}]/ # TODO: support multi-char splitters by replacing this regexp
+    field_split = Regexp::compile(@field_split_pattern || /[#{@field_split}]/)
+    value_split = Regexp::compile(@value_split_pattern || /[#{@value_split}]/)
 
     optional_whitespace = /\s*/
     eof = /$/
@@ -323,6 +368,8 @@ class LogStash::Filters::KV < LogStash::Filters::Base
 
     @scan_re = /#{field_split}?#{key_pattern}#{optional_whitespace}(?:#{value_split}#{optional_whitespace}#{value_pattern})?(?=#{Regexp::union(field_split, eof)})/
     @value_split_re = value_split
+
+    @logger.debug? && @logger.debug("KV scan regex", :regex => @scan_re.inspect)
   end
 
   def filter(event)

@@ -772,3 +772,129 @@ describe LogStash::Filters::KV do
     end
   end
 end
+
+describe "multi character splitting" do
+  subject do
+    plugin = LogStash::Filters::KV.new(options)
+    plugin.register
+    plugin
+  end
+
+  let(:data) { {"message" => message} }
+  let(:event) { LogStash::Event.new(data) }
+
+  shared_examples "parsing all fields and values" do
+    it "parses all fields and values" do
+      subject.filter(event)
+      expect(event.get("hello")).to eq("world")
+      expect(event.get("foo")).to eq("bar")
+      expect(event.get("baz")).to eq("fizz")
+      expect(event.get("doublequoted")).to eq("hello world")
+      expect(event.get("singlequoted")).to eq("hello world")
+      expect(event.get("bracketsone")).to eq("hello world")
+      expect(event.get("bracketstwo")).to eq("hello world")
+      expect(event.get("bracketsthree")).to eq("hello world")
+    end
+  end
+
+  context "empty value_split_pattern" do
+    let(:options) { { "value_split_pattern" => "" } }
+    it "should raise ConfigurationError" do
+      expect{subject}.to raise_error(LogStash::ConfigurationError)
+    end
+  end
+
+  context "empty field_split_pattern" do
+    let(:options) { { "field_split_pattern" => "" } }
+    it "should raise ConfigurationError" do
+      expect{subject}.to raise_error(LogStash::ConfigurationError)
+    end
+  end
+
+  context "single split" do
+    let(:message) { "hello:world foo:bar baz:fizz doublequoted:\"hello world\" singlequoted:'hello world' bracketsone:(hello world) bracketstwo:[hello world] bracketsthree:<hello world>" }
+    let(:options) {
+      {
+          "field_split" => " ",
+          "value_split" => ":",
+      }
+    }
+    it_behaves_like "parsing all fields and values"
+  end
+
+  context "value split multi" do
+    let(:message) { "hello::world foo::bar baz::fizz doublequoted::\"hello world\" singlequoted::'hello world' bracketsone::(hello world) bracketstwo::[hello world] bracketsthree::<hello world>" }
+    let(:options) {
+      {
+          "field_split" => " ",
+          "value_split_pattern" => "::",
+      }
+    }
+    it_behaves_like "parsing all fields and values"
+  end
+
+  context "field and value split multi" do
+    let(:message) { "hello::world__foo::bar__baz::fizz__doublequoted::\"hello world\"__singlequoted::'hello world'__bracketsone::(hello world)__bracketstwo::[hello world]__bracketsthree::<hello world>" }
+    let(:options) {
+      {
+          "field_split_pattern" => "__",
+          "value_split_pattern" => "::",
+      }
+    }
+    it_behaves_like "parsing all fields and values"
+  end
+
+  context "field and value split multi with regex" do
+    let(:message) { "hello:world_foo::bar__baz:::fizz___doublequoted:::\"hello world\"____singlequoted:::::'hello world'____bracketsone:::(hello world)__bracketstwo:[hello world]_bracketsthree::::::<hello world>" }
+    let(:options) {
+      {
+          "field_split_pattern" => "_+",
+          "value_split_pattern" => ":+",
+      }
+    }
+    it_behaves_like "parsing all fields and values"
+  end
+
+  context "field and value split multi using singe char" do
+    let(:message) { "hello:world foo:bar baz:fizz doublequoted:\"hello world\" singlequoted:'hello world' bracketsone:(hello world) bracketstwo:[hello world] bracketsthree:<hello world>" }
+    let(:options) {
+      {
+          "field_split_pattern" => " ",
+          "value_split_pattern" => ":",
+      }
+    }
+    it_behaves_like "parsing all fields and values"
+  end
+
+  context "field and value split multi using escaping" do
+    let(:message) { "hello++world??foo++bar??baz++fizz??doublequoted++\"hello world\"??singlequoted++'hello world'??bracketsone++(hello world)??bracketstwo++[hello world]??bracketsthree++<hello world>" }
+    let(:options) {
+      {
+          "field_split_pattern" => "\\?\\?",
+          "value_split_pattern" => "\\+\\+",
+      }
+    }
+    it_behaves_like "parsing all fields and values"
+  end
+
+
+  context "example from @guyboertje in #15" do
+    let(:message) { 'key1: val1; key2: val2; key3:  https://site/?g={......"...;  CLR  rv:11.0)"..}; key4: val4;' }
+    let(:options) {
+      {
+          "field_split_pattern" => ";\s*(?=key.+?:)|;$",
+          "value_split_pattern" => ":\s+",
+      }
+    }
+
+    it "parses all fields and values" do
+      subject.filter(event)
+
+      expect(event.get("key1")).to eq("val1")
+      expect(event.get("key2")).to eq("val2")
+      expect(event.get("key3")).to eq("https://site/?g={......\"...;  CLR  rv:11.0)\"..}")
+      expect(event.get("key4")).to eq("val4")
+    end
+  end
+
+end
