@@ -1,3 +1,6 @@
+## 4.1.0
+  - feature: add option to split fields and values using a regex pattern (#55)
+
 ## 4.0.3
   - Update gemspec summary
 
