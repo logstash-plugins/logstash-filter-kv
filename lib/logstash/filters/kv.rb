@@ -356,7 +356,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
       end
 
       # an unquoted value is a _captured_ sequence of characters or escaped spaces before a `field_split` or EOF.
-      value_patterns << /((?:\\ |.)+?)(?=#{Regexp::union(field_split, eof)})/
+      value_patterns << /((?:\\ |.)*?)(?=#{Regexp::union(field_split, eof)})/
 
       Regexp.union(*value_patterns)
     end

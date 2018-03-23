@@ -897,4 +897,37 @@ describe "multi character splitting" do
     end
   end
 
+  describe "handles empty values" do
+    let(:message) { 'a=1|b=|c=3' }
+
+    shared_examples "parse empty values" do
+      it "splits correctly upon empty value" do
+        subject.filter(event)
+
+        expect(event.get("a")).to eq("1")
+        expect(event.get("b")).to be_nil
+        expect(event.get("c")).to eq("3")
+      end
+    end
+
+    context "using char class splitters" do
+      let(:options) {
+        {
+            "field_split" => "|",
+            "value_split" => "=",
+        }
+      }
+      it_behaves_like "parse empty values"
+    end
+
+    context "using pattern splitters" do
+      let(:options) {
+        {
+            "field_split_pattern" => '\|',
+            "value_split_pattern" => "=",
+        }
+      }
+      it_behaves_like "parse empty values"
+    end
+  end
 end
