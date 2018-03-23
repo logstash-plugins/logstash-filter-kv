@@ -1,3 +1,6 @@
+## 4.1.1
+  - bugfix: correctly handle empty values between value separator and field separator (#58)
+
 ## 4.1.0
   - feature: add option to split fields and values using a regex pattern (#55)
 
