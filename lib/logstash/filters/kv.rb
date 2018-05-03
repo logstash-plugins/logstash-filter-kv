@@ -422,8 +422,8 @@ class LogStash::Filters::KV < LogStash::Filters::Base
     open_pattern = /#{Regexp.quote(quote_sequence)}/
     close_pattern = /#{Regexp.quote(close_quote_sequence)}/
 
-    # matches a sequence of zero or more characters that is followed by the `close_quote_sequence`
-    quoted_value_pattern = /(?:.)*?(?=#{Regexp.quote(close_quote_sequence)})/
+    # matches a sequence of zero or more characters are _not_ the `close_quote_sequence`
+    quoted_value_pattern = /[^#{Regexp.quote(close_quote_sequence)}]*/
 
     /#{open_pattern}(#{quoted_value_pattern})#{close_pattern}/
   end

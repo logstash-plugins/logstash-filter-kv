@@ -833,6 +833,40 @@ describe "multi character splitting" do
     it_behaves_like "parsing all fields and values"
   end
 
+  context 'multi-char field split pattern with value that begins quoted and contains more unquoted' do
+    let(:message) { 'foo=bar!!!!!baz="quoted stuff" and more unquoted!!!!!msg="fully-quoted with a part! of the separator"!!!!!blip="this!!!!!is it"!!!!!empty=""!!!!!non-empty="foo"' }
+    let(:options) {
+      {
+          "field_split_pattern" => "!!!!!"
+      }
+    }
+    it 'gets the right bits' do
+      subject.filter(event)
+      expect(event.get("foo")).to eq('bar')
+      expect(event.get("baz")).to eq('"quoted stuff" and more unquoted')
+      expect(event.get("msg")).to eq('fully-quoted with a part! of the separator')
+      expect(event.get("blip")).to eq('this!!!!!is it')
+      expect(event.get("empty")).to be_nil
+      expect(event.get("non-empty")).to eq('foo')
+    end
+  end
+
+  context 'standard field split pattern with value that begins quoted and contains more unquoted' do
+    let(:message) { 'foo=bar baz="quoted stuff" and more unquoted msg="some fully-quoted message " empty="" non-empty="foo"' }
+    let(:options) {
+      {
+      }
+    }
+    it 'gets the right bits' do
+      subject.filter(event)
+      expect(event.get("foo")).to eq('bar')
+      expect(event.get("baz")).to eq('quoted stuff') # NOTE: outside the quotes is truncated because field split pattern wins.
+      expect(event.get("msg")).to eq('some fully-quoted message ')
+      expect(event.get("empty")).to be_nil
+      expect(event.get("non-empty")).to eq('foo')
+    end
+  end
+
   context "field and value split multi" do
     let(:message) { "hello::world__foo::bar__baz::fizz__doublequoted::\"hello world\"__singlequoted::'hello world'__bracketsone::(hello world)__bracketstwo::[hello world]__bracketsthree::<hello world>" }
     let(:options) {
