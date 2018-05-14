@@ -730,6 +730,59 @@ describe LogStash::Filters::KV do
     end
   end
 
+  describe "trim_key/trim_value options : trim multiple matching characters from either end" do
+    subject do
+      plugin = LogStash::Filters::KV.new(options)
+      plugin.register
+      plugin
+    end
+
+    let(:data) { {"message" => message} }
+    let(:event) { LogStash::Event.new(data) }
+
+
+    context 'repeated same-character sequence' do
+      let(:message) { "key1=  value1 with spaces    |  key2 with spaces  =value2" }
+      let(:options) {
+        {
+            "field_split" => "|",
+            "value_split" => "=",
+            "trim_value" => " ",
+            "trim_key" => " "
+        }
+      }
+
+      it 'trims all the right bits' do
+        subject.filter(event)
+        expect(event.get('key1')).to eq('value1 with spaces')
+        expect(event.get('key2 with spaces')).to eq('value2')
+      end
+    end
+
+    context 'multi-character sequence' do
+      let(:message) { "to=<foo@example.com>, orig_to=<bar@example.com>, %+relay=mail.example.com[private/dovecot-lmtp], delay=2.2, delays=1.9/0.01/0.01/0.21, dsn=2.0.0, status=sent (250 2.0.0 <foo@example.com> YERDHejiRSXFDSdfUXTV Saved) " }
+      let(:options) {
+        {
+            "field_split" => " ",
+            "value_split" => "=",
+            "trim_value" => "<>,",
+            "trim_key" => "%+"
+        }
+      }
+
+      it 'trims all the right bits' do
+        subject.filter(event)
+        expect(event.get('to')).to eq('foo@example.com')
+        expect(event.get('orig_to')).to eq('bar@example.com')
+        expect(event.get('relay')).to eq('mail.example.com[private/dovecot-lmtp]')
+        expect(event.get('delay')).to eq('2.2')
+        expect(event.get('delays')).to eq('1.9/0.01/0.01/0.21')
+        expect(event.get('dsn')).to eq('2.0.0')
+        expect(event.get('status')).to eq('sent')
+      end
+    end
+  end
+
   describe "remove_char_key/remove_char_value options : remove all characters in keys/values whatever their position" do
     subject do
       plugin = LogStash::Filters::KV.new(options)

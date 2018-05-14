@@ -331,8 +331,8 @@ class LogStash::Filters::KV < LogStash::Filters::Base
       )
     end
 
-    @trim_value_re = Regexp.new("^[#{@trim_value}]|[#{@trim_value}]$") if @trim_value
-    @trim_key_re = Regexp.new("^[#{@trim_key}]|[#{@trim_key}]$") if @trim_key
+    @trim_value_re = Regexp.new("^[#{@trim_value}]+|[#{@trim_value}]+$") if @trim_value
+    @trim_key_re = Regexp.new("^[#{@trim_key}]+|[#{@trim_key}]+$") if @trim_key
 
     @remove_char_value_re = Regexp.new("[#{@remove_char_value}]") if @remove_char_value
     @remove_char_key_re = Regexp.new("[#{@remove_char_key}]") if @remove_char_key
