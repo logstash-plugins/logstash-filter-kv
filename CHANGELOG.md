@@ -1,3 +1,6 @@
+## 4.2.0
+ - feature: adds `whitespace => strict` mode, which allows the parser to behave more predictably when input is known to avoid unnecessary whitespace.
+
 ## 4.1.2
   - bugfix: improves trim_key and trim_value to trim any _sequence_ of matching characters from the beginning and ends of the corresponding keys and values; a previous implementation limitited trim to a single character from each end, which was surprising.
   - bugfix: fixes issue where we can fail to correctly break up a sequence that includes a partially-quoted value followed by another fully-quoted value by slightly reducing greediness of quoted-value captures.

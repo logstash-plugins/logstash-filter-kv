@@ -303,6 +303,20 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   #
   config :recursive, :validate => :boolean, :default => false
 
+  # An option specifying whether to be _lenient_ or _strict_ with the acceptance of unnecessary
+  # whitespace surrounding the configured value-split sequence.
+  #
+  # By default the plugin is run in `lenient` mode, which ignores spaces that occur before or
+  # after the value-splitter. While this allows the plugin to make reasonable guesses with most
+  # input, in some situations it may be too lenient.
+  #
+  # You may want to enable `whitespace => strict` mode if you have control of the input data and
+  # can guarantee that no extra spaces are added surrounding the pattern you have defined for
+  # splitting values. Doing so will ensure that a _field-splitter_ sequence immediately following
+  # a _value-splitter_ will be interpreted as an empty field.
+  #
+  config :whitespace, :validate => %w(strict lenient), :default => "lenient"
+
   def register
     if @value_split.empty?
       raise LogStash::ConfigurationError, I18n.t(
@@ -343,8 +357,10 @@ class LogStash::Filters::KV < LogStash::Filters::Base
     field_split_pattern = Regexp::compile(@field_split_pattern || "[#{@field_split}]")
     value_split_pattern = Regexp::compile(@value_split_pattern || "[#{@value_split}]")
 
-    # the value splitter can be wrapped in optional whitespace
-    value_split_pattern = /#{optional_whitespace}#{value_split_pattern}#{optional_whitespace}/
+    # in legacy-compatible lenient mode, the value splitter can be wrapped in optional whitespace
+    if @whitespace == 'lenient'
+      value_split_pattern = /#{optional_whitespace}#{value_split_pattern}#{optional_whitespace}/
+    end
 
     # a key is a _captured_ sequence of characters or escaped spaces before optional whitespace
     # and followed by either a `value_split`, a `field_split`, or EOF.
