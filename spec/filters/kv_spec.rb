@@ -46,6 +46,48 @@ describe LogStash::Filters::KV do
     end
   end
 
+  describe 'whitespace => strict' do
+    config <<-CONFIG
+      filter {
+        kv {
+          whitespace => strict
+        }
+      }
+    CONFIG
+
+    context 'unquoted values' do
+      sample "IN=eth0 OUT= MAC=0f:5f:5e:aa:d3:a2:21:ff:09:00:0f:e1:c8:17 SRC=192.168.0.1" do
+        insist { subject.get('IN') } == 'eth0'
+        insist { subject.get('OUT') } == nil # when whitespace is strict, OUT is empty and thus uncaptured.
+        insist { subject.get('MAC') } == '0f:5f:5e:aa:d3:a2:21:ff:09:00:0f:e1:c8:17'
+        insist { subject.get('SRC') } == '192.168.0.1'
+      end
+    end
+
+    context 'mixed quotations' do
+      sample 'hello=world goodbye=cruel\\ world empty_quoted="" quoted="value1" empty_unquoted= unquoted=value2 empty_bracketed=[] bracketed=[value3] cake=delicious' do
+        insist { subject.get('hello') } == 'world'
+        insist { subject.get('goodbye') } == 'cruel\\ world'
+        insist { subject.get('empty_quoted') } == nil
+        insist { subject.get('quoted') } == 'value1'
+        insist { subject.get('empty_unquoted') } == nil
+        insist { subject.get('unquoted') } == 'value2'
+        insist { subject.get('empty_bracketed') } == nil
+        insist { subject.get('bracketed') } == 'value3'
+        insist { subject.get('cake') } == 'delicious'
+      end
+    end
+
+    context 'when given sloppy input, it extracts only the unambiguous bits' do
+      sample "hello = world foo =bar baz= fizz whitespace=none doublequoted = \"hello world\" singlequoted= 'hello world' brackets =(hello world) strict=true" do
+        insist { subject.get('whitespace') } == 'none'
+        insist { subject.get('strict') } == 'true'
+
+        insist { subject.to_hash.keys.sort } == %w(@timestamp @version message strict whitespace)
+      end
+    end
+  end
+
   describe  "test transforming keys to lowercase and values to uppercase" do
     config <<-CONFIG
       filter {

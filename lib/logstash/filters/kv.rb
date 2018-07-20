@@ -303,6 +303,20 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   #
   config :recursive, :validate => :boolean, :default => false
 
+  # An option specifying whether to be _lenient_ or _strict_ with the acceptance of unnecessary
+  # whitespace surrounding the configured value-split sequence.
+  #
+  # By default the plugin is run in `lenient` mode, which ignores spaces that occur before or
+  # after the value-splitter. While this allows the plugin to make reasonable guesses with most
+  # input, in some situations it may be too lenient.
+  #
+  # You may want to enable `whitespace => strict` mode if you have control of the input data and
+  # can guarantee that no extra spaces are added surrounding the pattern you have defined for
+  # splitting values. Doing so will ensure that a _field-splitter_ sequence immediately following
+  # a _value-splitter_ will be interpreted as an empty field.
+  #
+  config :whitespace, :validate => %w(strict lenient), :default => "lenient"
+
   def register
     if @value_split.empty?
       raise LogStash::ConfigurationError, I18n.t(
@@ -337,11 +351,20 @@ class LogStash::Filters::KV < LogStash::Filters::Base
     @remove_char_value_re = Regexp.new("[#{@remove_char_value}]") if @remove_char_value
     @remove_char_key_re = Regexp.new("[#{@remove_char_key}]") if @remove_char_key
 
-    field_split = Regexp::compile(@field_split_pattern || /[#{@field_split}]/)
-    value_split = Regexp::compile(@value_split_pattern || /[#{@value_split}]/)
-
-    optional_whitespace = /\s*/
+    optional_whitespace = / */
     eof = /$/
+
+    field_split_pattern = Regexp::compile(@field_split_pattern || "[#{@field_split}]")
+    value_split_pattern = Regexp::compile(@value_split_pattern || "[#{@value_split}]")
+
+    # in legacy-compatible lenient mode, the value splitter can be wrapped in optional whitespace
+    if @whitespace == 'lenient'
+      value_split_pattern = /#{optional_whitespace}#{value_split_pattern}#{optional_whitespace}/
+    end
+
+    # a key is a _captured_ sequence of characters or escaped spaces before optional whitespace
+    # and followed by either a `value_split`, a `field_split`, or EOF.
+    key_pattern = unquoted_capture(value_split_pattern, field_split_pattern, eof)
 
     value_pattern = begin
       # each component expression within value_pattern _must_ capture exactly once.
@@ -356,18 +379,13 @@ class LogStash::Filters::KV < LogStash::Filters::Base
       end
 
       # an unquoted value is a _captured_ sequence of characters or escaped spaces before a `field_split` or EOF.
-      value_patterns << /((?:\\ |.)*?)(?=#{Regexp::union(field_split, eof)})/
+      value_patterns << unquoted_capture(field_split_pattern, eof)
 
-      Regexp.union(*value_patterns)
+      Regexp.union(value_patterns)
     end
 
-
-    # a key is a _captured_ sequence of characters or escaped spaces before optional whitespace
-    # and followed by either a `value_split`, a `field_split`, or EOF.
-    key_pattern = /((?:\\ |.)+?)(?=#{optional_whitespace}#{Regexp::union(value_split, field_split, eof)})/
-
-    @scan_re = /#{field_split}?#{key_pattern}#{optional_whitespace}(?:#{value_split}#{optional_whitespace}#{value_pattern})?(?=#{Regexp::union(field_split, eof)})/
-    @value_split_re = value_split
+    @scan_re = /#{key_pattern}#{value_split_pattern}#{value_pattern}#{Regexp::union(field_split_pattern, eof)}/
+    @value_split_re = value_split_pattern
 
     @logger.debug? && @logger.debug("KV scan regex", :regex => @scan_re.inspect)
   end
@@ -423,9 +441,19 @@ class LogStash::Filters::KV < LogStash::Filters::Base
     close_pattern = /#{Regexp.quote(close_quote_sequence)}/
 
     # matches a sequence of zero or more characters are _not_ the `close_quote_sequence`
-    quoted_value_pattern = /[^#{Regexp.quote(close_quote_sequence)}]*/
+    quoted_value_pattern = unquoted_capture(close_pattern)
 
-    /#{open_pattern}(#{quoted_value_pattern})#{close_pattern}/
+    /#{open_pattern}#{quoted_value_pattern}?#{close_pattern}/
+  end
+
+  # Helper function for generating *capturing* `Regexp` that will match any sequence of characters that are either
+  # backslash-escaped OR *NOT* matching any of the given pattern(s)
+  #
+  # @api private
+  # @param *until_lookahead_patterns [Regexp]
+  # @return [Regexp]
+  def unquoted_capture(*until_lookahead_patterns)
+    /((?:\\.|(?!#{Regexp::union(until_lookahead_patterns)}).)+)/
   end
 
   def transform(text, method)
