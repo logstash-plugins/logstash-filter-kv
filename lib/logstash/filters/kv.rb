@@ -418,6 +418,11 @@ class LogStash::Filters::KV < LogStash::Filters::Base
     end
 
     filter_matched(event)
+  rescue => ex
+    meta = { :exception => ex.message }
+    meta[:backtrace] = ex.backtrace if logger.debug?
+    logger.warn('Exception while parsing KV', meta)
+    event.tag('_kv_filter_error')
   end
 
   private

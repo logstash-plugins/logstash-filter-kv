@@ -1060,3 +1060,38 @@ describe "multi character splitting" do
     end
   end
 end
+
+context 'runtime errors' do
+
+  let(:options) { {} }
+  let(:plugin) do
+    LogStash::Filters::KV.new(options).instance_exec { register; self }
+  end
+
+  let(:data) { {"message" => message} }
+  let(:event) { LogStash::Event.new(data) }
+  let(:message) { "foo=bar hello=world" }
+
+
+  before(:each) do
+    expect(plugin).to receive(:parse) { fail('intentional') }
+  end
+
+  context 'when a runtime error is raised' do
+    it 'does not cascade the exception to crash the plugin' do
+      plugin.filter(event)
+    end
+    it 'tags the event with "_kv_filter_error"' do
+      plugin.filter(event)
+      expect(event.get('tags')).to_not be_nil
+      expect(event.get('tags')).to include('_kv_filter_error')
+    end
+    it 'logs an informative message' do
+      logger_double = double('Logger').as_null_object
+      expect(plugin).to receive(:logger).and_return(logger_double).at_least(:once)
+      expect(logger_double).to receive(:warn).with('Exception while parsing KV', anything)
+
+      plugin.filter(event)
+    end
+  end
+end
