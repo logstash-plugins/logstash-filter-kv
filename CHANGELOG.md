@@ -1,5 +1,6 @@
 ## 4.2.0
- - feature: adds `whitespace => strict` mode, which allows the parser to behave more predictably when input is known to avoid unnecessary whitespace.
+ - Added `whitespace => strict` mode, which allows the parser to behave more predictably when input is known to avoid unnecessary whitespace.
+ - Added error handling, which tags the event with `_kv_filter_error` if an exception is raised while handling an event instead of allowing the plugin to crash.
 
 ## 4.1.2
   - bugfix: improves trim_key and trim_value to trim any _sequence_ of matching characters from the beginning and ends of the corresponding keys and values; a previous implementation limitited trim to a single character from each end, which was surprising.
