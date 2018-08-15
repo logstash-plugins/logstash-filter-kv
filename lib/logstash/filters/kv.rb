@@ -411,8 +411,10 @@ class LogStash::Filters::KV < LogStash::Filters::Base
     return if kv.empty?
 
     if @target
-      @logger.debug? && @logger.debug("Overwriting existing target field", :target => @target)
-      event.set(@target, kv)
+      @logger.debug? && @logger.debug("Merging into existing target field", :target => @target)
+      t = event.get(@target)
+      t = {} unless t.is_a?(Hash)
+      event.set(@target, t.merge(kv))
     else
       kv.each{|k, v| event.set(k, v)}
     end

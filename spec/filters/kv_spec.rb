@@ -5,6 +5,12 @@ require "logstash/filters/kv"
 
 describe LogStash::Filters::KV do
 
+  let(:plugin) do
+    p = LogStash::Filters::KV.new(options)
+    p.register
+    p
+  end
+
   describe "defaults" do
     # The logstash config goes here.
     # At this time, only filters are supported.
@@ -181,11 +187,6 @@ describe LogStash::Filters::KV do
   # has_value_splitter?  - this is what I figured would help fixing the short circuit
   # broken code that was previously in place
   describe "short circuit" do
-    subject do
-      plugin = LogStash::Filters::KV.new(options)
-      plugin.register
-      plugin
-    end
     let(:data) { {"message" => message} }
     let(:event) { LogStash::Event.new(data) }
 
@@ -195,18 +196,18 @@ describe LogStash::Filters::KV do
       context "without splitter" do
         let(:message) { "foo:bar" }
         it "should short circuit" do
-          expect(subject.send(:has_value_splitter?, message)).to be_falsey
-          expect(subject).to receive(:has_value_splitter?).with(message).once.and_return(false)
-          subject.filter(event)
+          expect(plugin.send(:has_value_splitter?, message)).to be_falsey
+          expect(plugin).to receive(:has_value_splitter?).with(message).once.and_return(false)
+          plugin.filter(event)
         end
       end
 
       context "with splitter" do
         let(:message) { "foo=bar" }
         it "should not short circuit" do
-          expect(subject.send(:has_value_splitter?, message)).to be_truthy
-          expect(subject).to receive(:has_value_splitter?).with(message).once.and_return(true)
-          subject.filter(event)
+          expect(plugin.send(:has_value_splitter?, message)).to be_truthy
+          expect(plugin).to receive(:has_value_splitter?).with(message).once.and_return(true)
+          plugin.filter(event)
         end
       end
     end
@@ -218,16 +219,16 @@ describe LogStash::Filters::KV do
         let(:options) { {"recursive" => "true"} }
 
         it "should extract kv" do
-          subject.filter(event)
+          plugin.filter(event)
           expect(event.get("foo")).to eq(inner)
         end
 
         it "should short circuit" do
-          expect(subject.send(:has_value_splitter?, message)).to be_truthy
-          expect(subject.send(:has_value_splitter?, inner)).to be_falsey
-          expect(subject).to receive(:has_value_splitter?).with(message).once.and_return(true)
-          expect(subject).to receive(:has_value_splitter?).with(inner).once.and_return(false)
-          subject.filter(event)
+          expect(plugin.send(:has_value_splitter?, message)).to be_truthy
+          expect(plugin.send(:has_value_splitter?, inner)).to be_falsey
+          expect(plugin).to receive(:has_value_splitter?).with(message).once.and_return(true)
+          expect(plugin).to receive(:has_value_splitter?).with(inner).once.and_return(false)
+          plugin.filter(event)
         end
       end
 
@@ -239,25 +240,25 @@ describe LogStash::Filters::KV do
         let(:options) { {"recursive" => "true"} }
 
         it "should extract kv" do
-          subject.filter(event)
+          plugin.filter(event)
           expect(event.get("foo")).to eq(foo_val)
           expect(event.get("[bar][baz]")).to eq(baz_val)
         end
 
         it "should short circuit" do
-          expect(subject.send(:has_value_splitter?, message)).to be_truthy
-          expect(subject.send(:has_value_splitter?, foo_val)).to be_falsey
+          expect(plugin.send(:has_value_splitter?, message)).to be_truthy
+          expect(plugin.send(:has_value_splitter?, foo_val)).to be_falsey
 
-          expect(subject.send(:has_value_splitter?, inner)).to be_truthy
-          expect(subject.send(:has_value_splitter?, baz_val)).to be_falsey
+          expect(plugin.send(:has_value_splitter?, inner)).to be_truthy
+          expect(plugin.send(:has_value_splitter?, baz_val)).to be_falsey
 
-          expect(subject).to receive(:has_value_splitter?).with(message).once.and_return(true)
-          expect(subject).to receive(:has_value_splitter?).with(foo_val).once.and_return(false)
+          expect(plugin).to receive(:has_value_splitter?).with(message).once.and_return(true)
+          expect(plugin).to receive(:has_value_splitter?).with(foo_val).once.and_return(false)
 
-          expect(subject).to receive(:has_value_splitter?).with(inner).once.and_return(true)
-          expect(subject).to receive(:has_value_splitter?).with(baz_val).once.and_return(false)
+          expect(plugin).to receive(:has_value_splitter?).with(inner).once.and_return(true)
+          expect(plugin).to receive(:has_value_splitter?).with(baz_val).once.and_return(false)
 
-          subject.filter(event)
+          plugin.filter(event)
         end
       end
     end
@@ -421,37 +422,57 @@ describe LogStash::Filters::KV do
     end
   end
 
-  #New tests
-  describe "test target" do
-    config <<-CONFIG
-      filter {
-        kv { target => 'kv' }
-      }
-    CONFIG
+  describe "target" do
+    describe "set fields in target" do
+      config <<-CONFIG
+        filter {
+          kv { target => 'kv' }
+        }
+      CONFIG
 
-    sample "hello=world foo=bar baz=fizz doublequoted=\"hello world\" singlequoted='hello world'" do
-      insist { subject.get("kv")["hello"] } == "world"
-      insist { subject.get("kv")["foo"] } == "bar"
-      insist { subject.get("kv")["baz"] } == "fizz"
-      insist { subject.get("kv")["doublequoted"] } == "hello world"
-      insist { subject.get("kv")["singlequoted"] } == "hello world"
-      insist {subject.get("kv").count } == 5
+      sample "hello=world foo=bar baz=fizz doublequoted=\"hello world\" singlequoted='hello world'" do
+        insist { subject.get("kv")["hello"] } == "world"
+        insist { subject.get("kv")["foo"] } == "bar"
+        insist { subject.get("kv")["baz"] } == "fizz"
+        insist { subject.get("kv")["doublequoted"] } == "hello world"
+        insist { subject.get("kv")["singlequoted"] } == "hello world"
+        insist { subject.get("kv").count } == 5
+      end
     end
 
-  end
+    describe "empty target" do
+      config <<-CONFIG
+        filter {
+          kv { target => 'kv' }
+        }
+      CONFIG
 
-  describe "test empty target" do
-    config <<-CONFIG
-      filter {
-        kv { target => 'kv' }
+      sample "hello:world:foo:bar:baz:fizz" do
+        insist { subject.get("kv") } == nil
+      end
+    end
+
+    context "existing target" do
+
+      let(:message) { 'foo=1 bar=2 baz=3' }
+      let(:event) { LogStash::Event.new({"message" => message, "kv" => {"f1" => "v1", "f2" => "v2"}})}
+      let(:options) {
+        {
+            "target" => "kv"
+        }
       }
-    CONFIG
 
-    sample "hello:world:foo:bar:baz:fizz" do
-      insist { subject.get("kv") } == nil
+      it "merges into target" do
+        plugin.filter(event)
+
+        expect(event.get("[kv][f1]")).to eq("v1")
+        expect(event.get("[kv][f2]")).to eq("v2")
+        expect(event.get("[kv][foo]")).to eq("1")
+        expect(event.get("[kv][bar]")).to eq("2")
+        expect(event.get("[kv][baz]")).to eq("3")
+      end
     end
   end
-
 
   describe "test data from specific sub source" do
     config <<-CONFIG
@@ -486,7 +507,6 @@ describe LogStash::Filters::KV do
       insist { subject.get("singlequoted") } == "hello world"
     end
   end
-
 
   describe "test data from specific sub source and target" do
     config <<-CONFIG
@@ -705,12 +725,6 @@ describe LogStash::Filters::KV do
   end
 
   describe "keys without values (reported in #22)" do
-    subject do
-      plugin = LogStash::Filters::KV.new(options)
-      plugin.register
-      plugin
-    end
-
     let(:f1) { "AccountStatus" }
     let(:v1) { "4" }
     let(:f2) { "AdditionalInformation" }
@@ -733,7 +747,7 @@ describe LogStash::Filters::KV do
 
     context "key and splitters with no value" do
       it "should ignore the incomplete key/value pairs" do
-        subject.filter(event)
+        plugin.filter(event)
         expect(event.get(f1)).to eq(v1)
         expect(event.get(f5)).to eq(v5)
         expect(event.include?(f2)).to be false
@@ -745,12 +759,6 @@ describe LogStash::Filters::KV do
   end
 
   describe "trim_key/trim_value options : trim only leading and trailing spaces in keys/values (reported in #10)" do
-    subject do
-      plugin = LogStash::Filters::KV.new(options)
-      plugin.register
-      plugin
-    end
-
     let(:message) { "key1= value1 with spaces | key2 with spaces =value2" }
     let(:data) { {"message" => message} }
     let(:event) { LogStash::Event.new(data) }
@@ -765,7 +773,7 @@ describe LogStash::Filters::KV do
 
     context "key and value with leading, trailing and middle spaces" do
       it "should trim only leading and trailing spaces" do
-        subject.filter(event)
+        plugin.filter(event)
         expect(event.get("key1")).to eq("value1 with spaces")
         expect(event.get("key2 with spaces")).to eq("value2")
       end
@@ -773,15 +781,8 @@ describe LogStash::Filters::KV do
   end
 
   describe "trim_key/trim_value options : trim multiple matching characters from either end" do
-    subject do
-      plugin = LogStash::Filters::KV.new(options)
-      plugin.register
-      plugin
-    end
-
     let(:data) { {"message" => message} }
     let(:event) { LogStash::Event.new(data) }
-
 
     context 'repeated same-character sequence' do
       let(:message) { "key1=  value1 with spaces    |  key2 with spaces  =value2" }
@@ -795,7 +796,7 @@ describe LogStash::Filters::KV do
       }
 
       it 'trims all the right bits' do
-        subject.filter(event)
+        plugin.filter(event)
         expect(event.get('key1')).to eq('value1 with spaces')
         expect(event.get('key2 with spaces')).to eq('value2')
       end
@@ -813,7 +814,7 @@ describe LogStash::Filters::KV do
       }
 
       it 'trims all the right bits' do
-        subject.filter(event)
+        plugin.filter(event)
         expect(event.get('to')).to eq('foo@example.com')
         expect(event.get('orig_to')).to eq('bar@example.com')
         expect(event.get('relay')).to eq('mail.example.com[private/dovecot-lmtp]')
@@ -826,12 +827,6 @@ describe LogStash::Filters::KV do
   end
 
   describe "remove_char_key/remove_char_value options : remove all characters in keys/values whatever their position" do
-    subject do
-      plugin = LogStash::Filters::KV.new(options)
-      plugin.register
-      plugin
-    end
-  
     let(:message) { "key1= value1 with spaces | key2 with spaces =value2" }
     let(:data) { {"message" => message} }
     let(:event) { LogStash::Event.new(data) }
@@ -846,7 +841,7 @@ describe LogStash::Filters::KV do
   
     context "key and value with leading, trailing and middle spaces" do
       it "should remove all spaces" do
-        subject.filter(event)
+        plugin.filter(event)
         expect(event.get("key1")).to eq("value1withspaces")
         expect(event.get("key2withspaces")).to eq("value2")
       end
@@ -866,232 +861,220 @@ describe LogStash::Filters::KV do
       insist { subject }.raises(LogStash::ConfigurationError)
     end
   end
-end
 
-describe "multi character splitting" do
-  subject do
-    plugin = LogStash::Filters::KV.new(options)
-    plugin.register
-    plugin
-  end
+  describe "multi character splitting" do
+    let(:data) { {"message" => message} }
+    let(:event) { LogStash::Event.new(data) }
 
-  let(:data) { {"message" => message} }
-  let(:event) { LogStash::Event.new(data) }
-
-  shared_examples "parsing all fields and values" do
-    it "parses all fields and values" do
-      subject.filter(event)
-      expect(event.get("hello")).to eq("world")
-      expect(event.get("foo")).to eq("bar")
-      expect(event.get("baz")).to eq("fizz")
-      expect(event.get("doublequoted")).to eq("hello world")
-      expect(event.get("singlequoted")).to eq("hello world")
-      expect(event.get("bracketsone")).to eq("hello world")
-      expect(event.get("bracketstwo")).to eq("hello world")
-      expect(event.get("bracketsthree")).to eq("hello world")
-    end
-  end
-
-  context "empty value_split_pattern" do
-    let(:options) { { "value_split_pattern" => "" } }
-    it "should raise ConfigurationError" do
-      expect{subject}.to raise_error(LogStash::ConfigurationError)
-    end
-  end
-
-  context "empty field_split_pattern" do
-    let(:options) { { "field_split_pattern" => "" } }
-    it "should raise ConfigurationError" do
-      expect{subject}.to raise_error(LogStash::ConfigurationError)
-    end
-  end
-
-  context "single split" do
-    let(:message) { "hello:world foo:bar baz:fizz doublequoted:\"hello world\" singlequoted:'hello world' bracketsone:(hello world) bracketstwo:[hello world] bracketsthree:<hello world>" }
-    let(:options) {
-      {
-          "field_split" => " ",
-          "value_split" => ":",
-      }
-    }
-    it_behaves_like "parsing all fields and values"
-  end
-
-  context "value split multi" do
-    let(:message) { "hello::world foo::bar baz::fizz doublequoted::\"hello world\" singlequoted::'hello world' bracketsone::(hello world) bracketstwo::[hello world] bracketsthree::<hello world>" }
-    let(:options) {
-      {
-          "field_split" => " ",
-          "value_split_pattern" => "::",
-      }
-    }
-    it_behaves_like "parsing all fields and values"
-  end
-
-  context 'multi-char field split pattern with value that begins quoted and contains more unquoted' do
-    let(:message) { 'foo=bar!!!!!baz="quoted stuff" and more unquoted!!!!!msg="fully-quoted with a part! of the separator"!!!!!blip="this!!!!!is it"!!!!!empty=""!!!!!non-empty="foo"' }
-    let(:options) {
-      {
-          "field_split_pattern" => "!!!!!"
-      }
-    }
-    it 'gets the right bits' do
-      subject.filter(event)
-      expect(event.get("foo")).to eq('bar')
-      expect(event.get("baz")).to eq('"quoted stuff" and more unquoted')
-      expect(event.get("msg")).to eq('fully-quoted with a part! of the separator')
-      expect(event.get("blip")).to eq('this!!!!!is it')
-      expect(event.get("empty")).to be_nil
-      expect(event.get("non-empty")).to eq('foo')
-    end
-  end
-
-  context 'standard field split pattern with value that begins quoted and contains more unquoted' do
-    let(:message) { 'foo=bar baz="quoted stuff" and more unquoted msg="some fully-quoted message " empty="" non-empty="foo"' }
-    let(:options) {
-      {
-      }
-    }
-    it 'gets the right bits' do
-      subject.filter(event)
-      expect(event.get("foo")).to eq('bar')
-      expect(event.get("baz")).to eq('quoted stuff') # NOTE: outside the quotes is truncated because field split pattern wins.
-      expect(event.get("msg")).to eq('some fully-quoted message ')
-      expect(event.get("empty")).to be_nil
-      expect(event.get("non-empty")).to eq('foo')
-    end
-  end
-
-  context "field and value split multi" do
-    let(:message) { "hello::world__foo::bar__baz::fizz__doublequoted::\"hello world\"__singlequoted::'hello world'__bracketsone::(hello world)__bracketstwo::[hello world]__bracketsthree::<hello world>" }
-    let(:options) {
-      {
-          "field_split_pattern" => "__",
-          "value_split_pattern" => "::",
-      }
-    }
-    it_behaves_like "parsing all fields and values"
-  end
-
-  context "field and value split multi with regex" do
-    let(:message) { "hello:world_foo::bar__baz:::fizz___doublequoted:::\"hello world\"____singlequoted:::::'hello world'____bracketsone:::(hello world)__bracketstwo:[hello world]_bracketsthree::::::<hello world>" }
-    let(:options) {
-      {
-          "field_split_pattern" => "_+",
-          "value_split_pattern" => ":+",
-      }
-    }
-    it_behaves_like "parsing all fields and values"
-  end
-
-  context "field and value split multi using singe char" do
-    let(:message) { "hello:world foo:bar baz:fizz doublequoted:\"hello world\" singlequoted:'hello world' bracketsone:(hello world) bracketstwo:[hello world] bracketsthree:<hello world>" }
-    let(:options) {
-      {
-          "field_split_pattern" => " ",
-          "value_split_pattern" => ":",
-      }
-    }
-    it_behaves_like "parsing all fields and values"
-  end
-
-  context "field and value split multi using escaping" do
-    let(:message) { "hello++world??foo++bar??baz++fizz??doublequoted++\"hello world\"??singlequoted++'hello world'??bracketsone++(hello world)??bracketstwo++[hello world]??bracketsthree++<hello world>" }
-    let(:options) {
-      {
-          "field_split_pattern" => "\\?\\?",
-          "value_split_pattern" => "\\+\\+",
-      }
-    }
-    it_behaves_like "parsing all fields and values"
-  end
-
-
-  context "example from @guyboertje in #15" do
-    let(:message) { 'key1: val1; key2: val2; key3:  https://site/?g={......"...;  CLR  rv:11.0)"..}; key4: val4;' }
-    let(:options) {
-      {
-          "field_split_pattern" => ";\s*(?=key.+?:)|;$",
-          "value_split_pattern" => ":\s+",
-      }
-    }
-
-    it "parses all fields and values" do
-      subject.filter(event)
-
-      expect(event.get("key1")).to eq("val1")
-      expect(event.get("key2")).to eq("val2")
-      expect(event.get("key3")).to eq("https://site/?g={......\"...;  CLR  rv:11.0)\"..}")
-      expect(event.get("key4")).to eq("val4")
-    end
-  end
-
-  describe "handles empty values" do
-    let(:message) { 'a=1|b=|c=3' }
-
-    shared_examples "parse empty values" do
-      it "splits correctly upon empty value" do
-        subject.filter(event)
-
-        expect(event.get("a")).to eq("1")
-        expect(event.get("b")).to be_nil
-        expect(event.get("c")).to eq("3")
+    shared_examples "parsing all fields and values" do
+      it "parses all fields and values" do
+        plugin.filter(event)
+        expect(event.get("hello")).to eq("world")
+        expect(event.get("foo")).to eq("bar")
+        expect(event.get("baz")).to eq("fizz")
+        expect(event.get("doublequoted")).to eq("hello world")
+        expect(event.get("singlequoted")).to eq("hello world")
+        expect(event.get("bracketsone")).to eq("hello world")
+        expect(event.get("bracketstwo")).to eq("hello world")
+        expect(event.get("bracketsthree")).to eq("hello world")
       end
     end
 
-    context "using char class splitters" do
+    context "empty value_split_pattern" do
+      let(:options) { { "value_split_pattern" => "" } }
+      it "should raise ConfigurationError" do
+        expect{plugin}.to raise_error(LogStash::ConfigurationError)
+      end
+    end
+
+    context "empty field_split_pattern" do
+      let(:options) { { "field_split_pattern" => "" } }
+      it "should raise ConfigurationError" do
+        expect{plugin}.to raise_error(LogStash::ConfigurationError)
+      end
+    end
+
+    context "single split" do
+      let(:message) { "hello:world foo:bar baz:fizz doublequoted:\"hello world\" singlequoted:'hello world' bracketsone:(hello world) bracketstwo:[hello world] bracketsthree:<hello world>" }
       let(:options) {
         {
-            "field_split" => "|",
-            "value_split" => "=",
+            "field_split" => " ",
+            "value_split" => ":",
         }
       }
-      it_behaves_like "parse empty values"
+      it_behaves_like "parsing all fields and values"
     end
 
-    context "using pattern splitters" do
+    context "value split multi" do
+      let(:message) { "hello::world foo::bar baz::fizz doublequoted::\"hello world\" singlequoted::'hello world' bracketsone::(hello world) bracketstwo::[hello world] bracketsthree::<hello world>" }
       let(:options) {
         {
-            "field_split_pattern" => '\|',
-            "value_split_pattern" => "=",
+            "field_split" => " ",
+            "value_split_pattern" => "::",
         }
       }
-      it_behaves_like "parse empty values"
+      it_behaves_like "parsing all fields and values"
+    end
+
+    context 'multi-char field split pattern with value that begins quoted and contains more unquoted' do
+      let(:message) { 'foo=bar!!!!!baz="quoted stuff" and more unquoted!!!!!msg="fully-quoted with a part! of the separator"!!!!!blip="this!!!!!is it"!!!!!empty=""!!!!!non-empty="foo"' }
+      let(:options) {
+        {
+            "field_split_pattern" => "!!!!!"
+        }
+      }
+      it 'gets the right bits' do
+        plugin.filter(event)
+        expect(event.get("foo")).to eq('bar')
+        expect(event.get("baz")).to eq('"quoted stuff" and more unquoted')
+        expect(event.get("msg")).to eq('fully-quoted with a part! of the separator')
+        expect(event.get("blip")).to eq('this!!!!!is it')
+        expect(event.get("empty")).to be_nil
+        expect(event.get("non-empty")).to eq('foo')
+      end
+    end
+
+    context 'standard field split pattern with value that begins quoted and contains more unquoted' do
+      let(:message) { 'foo=bar baz="quoted stuff" and more unquoted msg="some fully-quoted message " empty="" non-empty="foo"' }
+      let(:options) {
+        {
+        }
+      }
+      it 'gets the right bits' do
+        plugin.filter(event)
+        expect(event.get("foo")).to eq('bar')
+        expect(event.get("baz")).to eq('quoted stuff') # NOTE: outside the quotes is truncated because field split pattern wins.
+        expect(event.get("msg")).to eq('some fully-quoted message ')
+        expect(event.get("empty")).to be_nil
+        expect(event.get("non-empty")).to eq('foo')
+      end
+    end
+
+    context "field and value split multi" do
+      let(:message) { "hello::world__foo::bar__baz::fizz__doublequoted::\"hello world\"__singlequoted::'hello world'__bracketsone::(hello world)__bracketstwo::[hello world]__bracketsthree::<hello world>" }
+      let(:options) {
+        {
+            "field_split_pattern" => "__",
+            "value_split_pattern" => "::",
+        }
+      }
+      it_behaves_like "parsing all fields and values"
+    end
+
+    context "field and value split multi with regex" do
+      let(:message) { "hello:world_foo::bar__baz:::fizz___doublequoted:::\"hello world\"____singlequoted:::::'hello world'____bracketsone:::(hello world)__bracketstwo:[hello world]_bracketsthree::::::<hello world>" }
+      let(:options) {
+        {
+            "field_split_pattern" => "_+",
+            "value_split_pattern" => ":+",
+        }
+      }
+      it_behaves_like "parsing all fields and values"
+    end
+
+    context "field and value split multi using singe char" do
+      let(:message) { "hello:world foo:bar baz:fizz doublequoted:\"hello world\" singlequoted:'hello world' bracketsone:(hello world) bracketstwo:[hello world] bracketsthree:<hello world>" }
+      let(:options) {
+        {
+            "field_split_pattern" => " ",
+            "value_split_pattern" => ":",
+        }
+      }
+      it_behaves_like "parsing all fields and values"
+    end
+
+    context "field and value split multi using escaping" do
+      let(:message) { "hello++world??foo++bar??baz++fizz??doublequoted++\"hello world\"??singlequoted++'hello world'??bracketsone++(hello world)??bracketstwo++[hello world]??bracketsthree++<hello world>" }
+      let(:options) {
+        {
+            "field_split_pattern" => "\\?\\?",
+            "value_split_pattern" => "\\+\\+",
+        }
+      }
+      it_behaves_like "parsing all fields and values"
+    end
+
+
+    context "example from @guyboertje in #15" do
+      let(:message) { 'key1: val1; key2: val2; key3:  https://site/?g={......"...;  CLR  rv:11.0)"..}; key4: val4;' }
+      let(:options) {
+        {
+            "field_split_pattern" => ";\s*(?=key.+?:)|;$",
+            "value_split_pattern" => ":\s+",
+        }
+      }
+
+      it "parses all fields and values" do
+        plugin.filter(event)
+
+        expect(event.get("key1")).to eq("val1")
+        expect(event.get("key2")).to eq("val2")
+        expect(event.get("key3")).to eq("https://site/?g={......\"...;  CLR  rv:11.0)\"..}")
+        expect(event.get("key4")).to eq("val4")
+      end
+    end
+
+    describe "handles empty values" do
+      let(:message) { 'a=1|b=|c=3' }
+
+      shared_examples "parse empty values" do
+        it "splits correctly upon empty value" do
+          plugin.filter(event)
+
+          expect(event.get("a")).to eq("1")
+          expect(event.get("b")).to be_nil
+          expect(event.get("c")).to eq("3")
+        end
+      end
+
+      context "using char class splitters" do
+        let(:options) {
+          {
+              "field_split" => "|",
+              "value_split" => "=",
+          }
+        }
+        it_behaves_like "parse empty values"
+      end
+
+      context "using pattern splitters" do
+        let(:options) {
+          {
+              "field_split_pattern" => '\|',
+              "value_split_pattern" => "=",
+          }
+        }
+        it_behaves_like "parse empty values"
+      end
     end
   end
-end
 
-context 'runtime errors' do
+  context 'runtime errors' do
+    let(:options) { {} }
+    let(:data) { {"message" => message} }
+    let(:event) { LogStash::Event.new(data) }
+    let(:message) { "foo=bar hello=world" }
 
-  let(:options) { {} }
-  let(:plugin) do
-    LogStash::Filters::KV.new(options).instance_exec { register; self }
-  end
-
-  let(:data) { {"message" => message} }
-  let(:event) { LogStash::Event.new(data) }
-  let(:message) { "foo=bar hello=world" }
-
-
-  before(:each) do
-    expect(plugin).to receive(:parse) { fail('intentional') }
-  end
-
-  context 'when a runtime error is raised' do
-    it 'does not cascade the exception to crash the plugin' do
-      plugin.filter(event)
+    before(:each) do
+      expect(plugin).to receive(:parse) { fail('intentional') }
     end
-    it 'tags the event with "_kv_filter_error"' do
-      plugin.filter(event)
-      expect(event.get('tags')).to_not be_nil
-      expect(event.get('tags')).to include('_kv_filter_error')
-    end
-    it 'logs an informative message' do
-      logger_double = double('Logger').as_null_object
-      expect(plugin).to receive(:logger).and_return(logger_double).at_least(:once)
-      expect(logger_double).to receive(:warn).with('Exception while parsing KV', anything)
 
-      plugin.filter(event)
+    context 'when a runtime error is raised' do
+      it 'does not cascade the exception to crash the plugin' do
+        plugin.filter(event)
+      end
+      it 'tags the event with "_kv_filter_error"' do
+        plugin.filter(event)
+        expect(event.get('tags')).to_not be_nil
+        expect(event.get('tags')).to include('_kv_filter_error')
+      end
+      it 'logs an informative message' do
+        logger_double = double('Logger').as_null_object
+        expect(plugin).to receive(:logger).and_return(logger_double).at_least(:once)
+        expect(logger_double).to receive(:warn).with('Exception while parsing KV', anything)
+
+        plugin.filter(event)
+      end
     end
   end
 end
