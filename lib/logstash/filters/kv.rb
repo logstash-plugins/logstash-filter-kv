@@ -364,7 +364,9 @@ class LogStash::Filters::KV < LogStash::Filters::Base
 
     # a key is a _captured_ sequence of characters or escaped spaces before optional whitespace
     # and followed by either a `value_split`, a `field_split`, or EOF.
-    key_pattern = unquoted_capture(value_split_pattern, field_split_pattern, eof)
+    key_pattern = (original_params.include?('value_split_pattern') || original_params.include?('field_split_pattern')) ?
+                      unquoted_capture_until_pattern(value_split_pattern, field_split_pattern) :
+                      unquoted_capture_until_charclass(@value_split + @field_split)
 
     value_pattern = begin
       # each component expression within value_pattern _must_ capture exactly once.
@@ -379,12 +381,14 @@ class LogStash::Filters::KV < LogStash::Filters::Base
       end
 
       # an unquoted value is a _captured_ sequence of characters or escaped spaces before a `field_split` or EOF.
-      value_patterns << unquoted_capture(field_split_pattern, eof)
+      value_patterns << (original_params.include?('field_split_pattern') ?
+                             unquoted_capture_until_pattern(field_split_pattern) :
+                             unquoted_capture_until_charclass(@field_split))
 
       Regexp.union(value_patterns)
     end
 
-    @scan_re = /#{key_pattern}#{value_split_pattern}#{value_pattern}#{Regexp::union(field_split_pattern, eof)}/
+    @scan_re = /#{key_pattern}#{value_split_pattern}#{value_pattern}?#{Regexp::union(field_split_pattern, eof)}/
     @value_split_re = value_split_pattern
 
     @logger.debug? && @logger.debug("KV scan regex", :regex => @scan_re.inspect)
@@ -446,7 +450,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
     close_pattern = /#{Regexp.quote(close_quote_sequence)}/
 
     # matches a sequence of zero or more characters are _not_ the `close_quote_sequence`
-    quoted_value_pattern = unquoted_capture(close_pattern)
+    quoted_value_pattern = unquoted_capture_until_charclass(Regexp.quote(close_quote_sequence))
 
     /#{open_pattern}#{quoted_value_pattern}?#{close_pattern}/
   end
@@ -457,8 +461,19 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   # @api private
   # @param *until_lookahead_patterns [Regexp]
   # @return [Regexp]
-  def unquoted_capture(*until_lookahead_patterns)
-    /((?:\\.|(?!#{Regexp::union(until_lookahead_patterns)}).)+)/
+  def unquoted_capture_until_pattern(*patterns)
+    pattern = patterns.size > 1 ? Regexp.union(patterns) : patterns.first
+    /((?:\\.|(?!#{pattern}).)+)/
+  end
+
+  # Helper function for generating *capturing* `Regexp` that will _efficiently_ match any sequence of characters
+  # that are either backslash-escaped or do _not_ belong to the given charclass.
+  #
+  # @api private
+  # @param charclass [String] characters to be injected directly into a regexp charclass; special characters must be pre-escaped.
+  # @return [Regexp]
+  def unquoted_capture_until_charclass(charclass)
+    /((?:\\.|[^#{charclass}])+)/
   end
 
   def transform(text, method)
