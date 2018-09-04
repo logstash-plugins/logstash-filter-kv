@@ -1,3 +1,6 @@
+## 4.2.1
+ - Fixes performance regression introduced in 4.1.0 ([#70](https://github.com/logstash-plugins/logstash-filter-kv/issues/70))
+
 ## 4.2.0
  - Added `whitespace => strict` mode, which allows the parser to behave more predictably when input is known to avoid unnecessary whitespace.
  - Added error handling, which tags the event with `_kv_filter_error` if an exception is raised while handling an event instead of allowing the plugin to crash.
