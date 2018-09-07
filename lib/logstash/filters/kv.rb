@@ -578,9 +578,9 @@ class LogStash::Filters::KV < LogStash::Filters::Base
       value = value_candidates.compact.first || EMPTY_STRING
       next if value.empty? && !@allow_empty_values
 
-      key = @trim_key ? key.gsub(@trim_key_re, "") : key
-      key = @remove_char_key ? key.gsub(@remove_char_key_re, "") : key
-      key = @transform_key ? transform(key, @transform_key) : key
+      key = key.gsub(@trim_key_re, EMPTY_STRING) if @trim_key
+      key = key.gsub(@remove_char_key_re, EMPTY_STRING) if @remove_char_key
+      key = transform(key, @transform_key) if @transform_key
 
       # Bail out as per the values of include_keys and exclude_keys
       next if not include_keys.empty? and not include_keys.include?(key)
@@ -589,9 +589,9 @@ class LogStash::Filters::KV < LogStash::Filters::Base
 
       key = event.sprintf(@prefix) + key
 
-      value = @trim_value ? value.gsub(@trim_value_re, "") : value
-      value = @remove_char_value ? value.gsub(@remove_char_value_re, "") : value
-      value = @transform_value ? transform(value, @transform_value) : value
+      value = value.gsub(@trim_value_re, EMPTY_STRING) if @trim_value
+      value = value.gsub(@remove_char_value_re, EMPTY_STRING) if @remove_char_value
+      value = transform(value, @transform_value) if @transform_value
 
       # Bail out if inserting duplicate value in key mapping when unique_values
       # option is set to true.
