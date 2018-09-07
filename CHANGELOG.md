@@ -1,3 +1,6 @@
+## 4.6.0
+ - Added `allow_empty_values` option [#72](https://github.com/logstash-plugins/logstash-filter-kv/pull/72)
+
 ## 4.5.0
  - Feat: check that target is set in ECS mode [#96](https://github.com/logstash-plugins/logstash-filter-kv/pull/96)
 
