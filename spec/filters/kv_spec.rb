@@ -689,6 +689,26 @@ describe LogStash::Filters::KV do
     end
   end
 
+  describe "Allowing empty values" do
+    config <<-CONFIG
+      filter {
+        kv {
+          field_split => "~"
+          source => "source"
+          allow_empty_values => true
+        }
+      }
+    CONFIG
+
+    sample("source" => "present=one~empty=~emptyquoted=''~present=two~emptybracketed=[]~endofinput=") do
+      insist { subject.get('[present]') } == ['one','two']
+      insist { subject.get('[empty]') } == ''
+      insist { subject.get('[emptyquoted]') } == ''
+      insist { subject.get('[emptybracketed]') } == ''
+      insist { subject.get('[endofinput]') } == ''
+    end
+  end
+
   describe "Allow duplicate key/value pairs by default" do
     config <<-CONFIG
       filter {

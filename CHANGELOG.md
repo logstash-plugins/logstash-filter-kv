@@ -1,3 +1,6 @@
+## Unreleased
+ - Added `allow_empty_values` option.
+
 ## 4.2.1
  - Fixes performance regression introduced in 4.1.0 ([#70](https://github.com/logstash-plugins/logstash-filter-kv/issues/70))
 
