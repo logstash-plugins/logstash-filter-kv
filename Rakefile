@@ -5,3 +5,7 @@ task :default do
 end
 
 require "logstash/devutils/rake"
+
+task :vendor do
+  system("./gradlew vendor")
+end

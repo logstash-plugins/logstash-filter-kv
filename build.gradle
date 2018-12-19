@@ -11,6 +11,11 @@ plugins {
     id 'java-library'
 }
 
+group "org.logstash.filters"
+
+import java.nio.file.Files
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING
+
 repositories {
     // Use jcenter for resolving your dependencies.
     // You can declare any Maven/Ivy/file repository here.
@@ -21,3 +26,13 @@ dependencies {
     // Use JUnit test framework
     testImplementation 'junit:junit:4.12'
 }
+
+task vendor {
+  String vendorPathPrefix = "vendor/jar-dependencies"
+  String projectGroupPath = project.group.replaceAll('\\.', '/')
+  File projectJarFile = file("${vendorPathPrefix}/${projectGroupPath}/${project.name}/${project.name}.jar")
+  projectJarFile.mkdirs()
+  Files.copy(file("$buildDir/libs/${project.name}.jar").toPath(), projectJarFile.toPath(), REPLACE_EXISTING)
+}
+
+vendor.dependsOn(jar)
