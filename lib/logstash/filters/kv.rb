@@ -320,6 +320,8 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   #
   config :whitespace, :validate => %w(strict lenient), :default => "lenient"
 
+  config :allow_optimize, :validate => :boolean, :default => true
+
   def register
     if @value_split.empty?
       raise LogStash::ConfigurationError, I18n.t(
@@ -405,7 +407,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
     when nil
       # Nothing to do
     when String
-      if naive_conf?()
+      if @allow_optimize and naive_conf?()
         instance = org.logstash.filters.KvFilter.new
         kv = instance.filter value
       else

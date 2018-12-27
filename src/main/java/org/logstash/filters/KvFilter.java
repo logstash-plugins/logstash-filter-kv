@@ -21,21 +21,23 @@ public class KvFilter {
 				break;
 			}
 			ScanResult valueResult = phase2(keyResult.cursor, message);
-			if (result.containsKey(keyResult.value)) {
-				Object tmpVal = result.get(keyResult.value);
-				if (tmpVal instanceof List) {
-					@SuppressWarnings("unchecked")
-					List<String> tmpList = (List<String>) tmpVal;
-					tmpList.add(valueResult.value);
-				} else {
-					List<String> tmpList = new LinkedList<>();
-					tmpList.add(tmpVal.toString());
-					tmpList.add(valueResult.value);
-					result.put(keyResult.value, tmpList);
-				}
-			} else {
-				result.put(keyResult.value, valueResult.value);	
-			}
+            if (valueResult.value.length() != 0) {
+                if (result.containsKey(keyResult.value)) {
+                    Object tmpVal = result.get(keyResult.value);
+                    if (tmpVal instanceof List) {
+                        @SuppressWarnings("unchecked")
+                        List<String> tmpList = (List<String>) tmpVal;
+                        tmpList.add(valueResult.value);
+                    } else {
+                        List<String> tmpList = new LinkedList<>();
+                        tmpList.add(tmpVal.toString());
+                        tmpList.add(valueResult.value);
+                        result.put(keyResult.value, tmpList);
+                    }
+                } else {
+                    result.put(keyResult.value, valueResult.value);	
+                }
+            }
 			cursor = valueResult.cursor;
 		}
 		return result;
