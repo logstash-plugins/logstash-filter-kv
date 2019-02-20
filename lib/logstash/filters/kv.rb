@@ -402,9 +402,9 @@ class LogStash::Filters::KV < LogStash::Filters::Base
     when nil
       # Nothing to do
     when String
-      kv = parse(value, event, kv)
+      parse(value, event, kv)
     when Array
-      value.each { |v| kv = parse(v, event, kv) }
+      value.each { |v| parse(v, event, kv) }
     else
       @logger.warn("kv filter has no support for this type of data", :type => value.class, :value => value)
     end
@@ -487,9 +487,16 @@ class LogStash::Filters::KV < LogStash::Filters::Base
     end
   end
 
+  # Parses the given `text`, using the `event` for context, into the provided `kv_keys` hash
+  #
+  # @param text [String]: the text to parse
+  # @param event [LogStash::Event]: the event from which to extract context (e.g., sprintf vs (in|ex)clude keys)
+  # @param kv_keys [Hash{String=>Object}]: the hash in which to inject found key/value pairs
+  #
+  # @return [void]
   def parse(text, event, kv_keys)
     # short circuit parsing if the text does not contain the @value_split
-    return kv_keys unless has_value_splitter?(text)
+    return unless has_value_splitter?(text)
 
     # Interpret dynamic keys for @include_keys and @exclude_keys
     include_keys = @include_keys.map{|key| event.sprintf(key)}
@@ -520,7 +527,8 @@ class LogStash::Filters::KV < LogStash::Filters::Base
 
       # recursively get more kv pairs from the value
       if @recursive
-        innerKv = parse(value, event, {})
+        innerKv = {}
+        parse(value, event, innerKv)
         value = innerKv unless innerKv.empty?
       end
 
@@ -535,6 +543,5 @@ class LogStash::Filters::KV < LogStash::Filters::Base
       end
     end
 
-    return kv_keys
   end
 end
