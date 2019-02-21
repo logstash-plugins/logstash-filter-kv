@@ -3,6 +3,9 @@
 require "logstash/filters/base"
 require "logstash/namespace"
 
+require "java"
+require "org/logstash/filters/logstash-filter-kv/logstash-filter-kv"
+
 # This filter helps automatically parse messages (or specific event fields)
 # which are of the `foo=bar` variety.
 #
@@ -317,6 +320,8 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   #
   config :whitespace, :validate => %w(strict lenient), :default => "lenient"
 
+  config :allow_optimize, :validate => :boolean, :default => true
+
   def register
     if @value_split.empty?
       raise LogStash::ConfigurationError, I18n.t(
@@ -402,7 +407,12 @@ class LogStash::Filters::KV < LogStash::Filters::Base
     when nil
       # Nothing to do
     when String
-      kv = parse(value, event, kv)
+      if @allow_optimize and naive_conf?()
+        instance = org.logstash.filters.KvFilter.new
+        kv = instance.filter value
+      else
+        kv = parse value, event, kv
+      end
     when Array
       value.each { |v| kv = parse(v, event, kv) }
     else
@@ -430,6 +440,28 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   end
 
   private
+
+  def naive_conf?()
+    naive = true
+    naive = (naive and @allow_duplicate_values == true)
+    naive = (naive and @exclude_keys.empty?()         )
+    naive = (naive and @field_split == " "            )
+    naive = (naive and @field_split_pattern == nil    )
+    naive = (naive and @include_brackets == true      )
+    naive = (naive and @include_keys.empty?()         )
+    naive = (naive and @recursive == false            )
+    naive = (naive and @remove_char_key == nil        )
+    naive = (naive and @remove_char_value == nil      )
+    naive = (naive and @transform_key == nil          )
+    naive = (naive and @transform_value == nil        )
+    naive = (naive and @trim_key == nil               )
+    naive = (naive and @trim_value == nil             )
+    naive = (naive and @value_split == "="            )
+    naive = (naive and @value_split_pattern == nil    )
+    naive = (naive and @whitespace == "lenient"       )
+    naive = (naive and @prefix == ""                  )
+    return naive
+  end
 
   def has_value_splitter?(s)
     s =~ @value_split_re

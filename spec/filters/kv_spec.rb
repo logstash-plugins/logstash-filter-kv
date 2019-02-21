@@ -190,7 +190,7 @@ describe LogStash::Filters::KV do
     let(:event) { LogStash::Event.new(data) }
 
     context "plain message" do
-      let(:options) { {} }
+      let(:options) { {"allow_optimize" => "false"} }
 
       context "without splitter" do
         let(:message) { "foo:bar" }
@@ -1063,7 +1063,7 @@ end
 
 context 'runtime errors' do
 
-  let(:options) { {} }
+  let(:options) { {"allow_optimize" => "false"} }
   let(:plugin) do
     LogStash::Filters::KV.new(options).instance_exec { register; self }
   end
