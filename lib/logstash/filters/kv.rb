@@ -327,6 +327,9 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   # Tag to apply if a kv regexp times out.
   config :tag_on_timeout, :validate => :string, :default => '_kv_filter_timeout'
 
+  # Tag to apply if kv errors
+  config :tag_on_failure, :validate => :string, :default => '_kv_filter_error'
+
   def register
     if @value_split.empty?
       raise LogStash::ConfigurationError, I18n.t(
@@ -445,7 +448,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
     meta = { :exception => ex.message }
     meta[:backtrace] = ex.backtrace if logger.debug?
     logger.warn('Exception while parsing KV', meta)
-    event.tag('_kv_filter_error')
+    event.tag(@tag_on_failure)
   end
 
   def close
