@@ -1095,3 +1095,121 @@ context 'runtime errors' do
     end
   end
 end
+
+# This group intentionally uses patterns that are vulnerable to pathological inputs to test timeouts.
+#
+# patterns of the form `/(?:x+x+)+y/` are vulnerable to inputs that have long sequences matching `/x/`
+# that are _not_ followed by a sequence matching `/y/`.
+context 'timeouts' do
+  let(:options) do
+    {
+        "value_split_pattern" => "(?:=+=+)+:"
+    }
+  end
+  subject(:plugin) do
+    LogStash::Filters::KV.new(options).instance_exec { register; self }
+  end
+
+  let(:data) { {"message" => message} }
+  let(:event) { LogStash::Event.new(data) }
+  let(:message) { "foo=bar hello=world" }
+
+  after(:each) { plugin.close }
+
+  # since we are dealing with potentially-pathological specs, ensure specs fail in a timely
+  # manner if they block for longer than `spec_blocking_threshold_seconds`.
+  let(:spec_blocking_threshold_seconds) { 10 }
+  around(:each) do |example|
+    begin
+      blocking_exception_class = Class.new(::Exception) # avoid RuntimeError, which is handled in KV#filter
+      Timeout.timeout(spec_blocking_threshold_seconds, blocking_exception_class, &example)
+    rescue blocking_exception_class
+      fail('execution blocked')
+    end
+  end
+
+  context 'when timeouts are enabled' do
+    let(:options) { super().merge("timeout_millis" => 250) }
+    let(:spec_blocking_threshold_seconds) { 3 }
+
+    context 'when given a pathological input' do
+      let(:message) { "foo========:bar baz================================================bingo" }
+
+      it 'tags the event' do
+        plugin.filter(event)
+
+        expect(event.get('tags')).to be_a_kind_of(Enumerable)
+        expect(event.get('tags')).to include('_kv_filter_timeout')
+      end
+
+      context 'when given a custom `tag_on_timeout`' do
+        let(:options) { super().merge('tag_on_timeout' => 'BADKV') }
+
+        it 'tags the event with the custom tag' do
+          plugin.filter(event)
+
+          expect(event.get('tags')).to be_a_kind_of(Enumerable)
+          expect(event.get('tags')).to include('BADKV')
+        end
+      end
+
+      context 'when default_keys are provided' do
+        let(:options) { super().merge("default_keys" => {"default" => "key"})}
+
+        it 'does not populate default keys' do
+          plugin.filter(event)
+
+          expect(event).to_not include('default')
+        end
+      end
+      context 'when filter_matched hooks are provided' do
+        let(:options) { super().merge("add_field" => {"kv" => "success"})}
+
+        it 'does not call filter_matched hooks' do
+          plugin.filter(event)
+
+          expect(event).to_not include('kv')
+        end
+      end
+    end
+
+    context 'when given a non-pathological input' do
+      let(:message) { "foo==:bar baz==:bingo" }
+
+      it 'extracts the k/v' do
+        plugin.filter(event)
+
+        expect(event.get('foo')).to eq('bar')
+        expect(event.get('baz')).to eq('bingo')
+      end
+    end
+  end
+
+  context 'when timeouts are explicitly disabled' do
+    let(:options) { super().merge("timeout_millis" => 0) }
+
+    context 'when given a pathological input' do
+      let(:message) { "foo========:bar baz================================================================bingo"}
+
+      it 'blocks for at least 3 seconds' do
+        blocking_exception_class = Class.new(::Exception) # avoid RuntimeError, which is handled in KV#filter
+        expect do
+          Timeout.timeout(3, blocking_exception_class) do
+            plugin.filter(event)
+          end
+        end.to raise_exception(blocking_exception_class)
+      end
+    end
+
+    context 'when given a non-pathological input' do
+      let(:message) { "foo==:bar baz==:bingo" }
+
+      it 'extracts the k/v' do
+        plugin.filter(event)
+
+        expect(event.get('foo')).to eq('bar')
+        expect(event.get('baz')).to eq('bingo')
+      end
+    end
+  end
+end

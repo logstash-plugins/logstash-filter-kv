@@ -317,6 +317,16 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   #
   config :whitespace, :validate => %w(strict lenient), :default => "lenient"
 
+  # Attempt to terminate regexps after this amount of time.
+  # This applies per source field value if event has multiple values in the source field.
+  # This will never timeout early, but may take a little longer to timeout.
+  # Actual timeout is approximate based on a 250ms quantization.
+  # Set to 0 to disable timeouts
+  config :timeout_millis, :validate => :number, :default => 30_000
+
+  # Tag to apply if a kv regexp times out.
+  config :tag_on_timeout, :validate => :string, :default => '_kv_filter_timeout'
+
   def register
     if @value_split.empty?
       raise LogStash::ConfigurationError, I18n.t(
@@ -392,21 +402,26 @@ class LogStash::Filters::KV < LogStash::Filters::Base
     @value_split_re = value_split_pattern
 
     @logger.debug? && @logger.debug("KV scan regex", :regex => @scan_re.inspect)
+
+    @timeout_enforcer = initialize_timeout_enforcer
+    @timeout_enforcer.start!
   end
 
   def filter(event)
     kv = Hash.new
     value = event.get(@source)
 
-    case value
-    when nil
-      # Nothing to do
-    when String
-      kv = parse(value, event, kv)
-    when Array
-      value.each { |v| kv = parse(v, event, kv) }
-    else
-      @logger.warn("kv filter has no support for this type of data", :type => value.class, :value => value)
+    @timeout_enforcer.execute do
+      case value
+      when nil
+        # Nothing to do
+      when String
+        parse(value, event, kv)
+      when Array
+        value.each { |v| parse(v, event, kv) }
+      else
+        @logger.warn("kv filter has no support for this type of data", :type => value.class, :value => value)
+      end
     end
 
     # Add default key-values for missing keys
@@ -422,6 +437,10 @@ class LogStash::Filters::KV < LogStash::Filters::Base
     end
 
     filter_matched(event)
+
+  rescue TimeoutException => e
+    logger.warn("Timeout reached in KV filter with value #{summarize(value)}")
+    event.tag(@tag_on_timeout)
   rescue => ex
     meta = { :exception => ex.message }
     meta[:backtrace] = ex.backtrace if logger.debug?
@@ -429,7 +448,35 @@ class LogStash::Filters::KV < LogStash::Filters::Base
     event.tag('_kv_filter_error')
   end
 
+  def close
+    @timeout_enforcer.stop!
+  end
+
   private
+
+  # @overload summarize(value)
+  #   @param value [Array]
+  #   @return [String]
+  # @overload summarize(value)
+  #   @param value [String]
+  #   @return [String]
+  def summarize(value)
+    if value.kind_of?(Array)
+      value.map(&:to_s).map do |entry|
+        summarize(entry)
+      end.to_s
+    end
+
+    value = value.to_s
+
+    value.bytesize < 255 ? "`#{value}`" : "entry too large; first 255 chars are `#{value[0..255].dump}`"
+  end
+
+  def initialize_timeout_enforcer
+    return NULL_TIMEOUT_ENFORCER if @timeout_millis <= 0
+
+    TimeoutEnforcer.new(logger, @timeout_millis * 1_000_000)
+  end
 
   def has_value_splitter?(s)
     s =~ @value_split_re
@@ -487,9 +534,16 @@ class LogStash::Filters::KV < LogStash::Filters::Base
     end
   end
 
+  # Parses the given `text`, using the `event` for context, into the provided `kv_keys` hash
+  #
+  # @param text [String]: the text to parse
+  # @param event [LogStash::Event]: the event from which to extract context (e.g., sprintf vs (in|ex)clude keys)
+  # @param kv_keys [Hash{String=>Object}]: the hash in which to inject found key/value pairs
+  #
+  # @return [void]
   def parse(text, event, kv_keys)
     # short circuit parsing if the text does not contain the @value_split
-    return kv_keys unless has_value_splitter?(text)
+    return unless has_value_splitter?(text)
 
     # Interpret dynamic keys for @include_keys and @exclude_keys
     include_keys = @include_keys.map{|key| event.sprintf(key)}
@@ -520,7 +574,8 @@ class LogStash::Filters::KV < LogStash::Filters::Base
 
       # recursively get more kv pairs from the value
       if @recursive
-        innerKv = parse(value, event, {})
+        innerKv = {}
+        parse(value, event, innerKv)
         value = innerKv unless innerKv.empty?
       end
 
@@ -534,7 +589,95 @@ class LogStash::Filters::KV < LogStash::Filters::Base
         kv_keys[key] = value
       end
     end
-
-    return kv_keys
   end
+
+  class TimeoutException < RuntimeError
+  end
+
+  class TimeoutEnforcer
+    def initialize(logger, timeout_nanos)
+      @logger = logger
+      @running = java.util.concurrent.atomic.AtomicBoolean.new(false)
+      @timeout_nanos = timeout_nanos
+
+      # Stores running matches with their start time, this is used to cancel long running matches
+      # Is a map of Thread => start_time
+      @threads_to_start_time = java.util.concurrent.ConcurrentHashMap.new
+    end
+
+    def execute(&block)
+      begin
+        thread = java.lang.Thread.currentThread()
+        @threads_to_start_time.put(thread, java.lang.System.nanoTime)
+
+        yield
+
+      rescue InterruptedRegexpError, java.lang.InterruptedException => e
+        raise TimeoutException.new
+      ensure
+        # If the block finished, but interrupt was called after, we'll want to
+        # clear the interrupted status anyway
+        @threads_to_start_time.remove(thread)
+        thread.interrupted
+      end
+    end
+
+    def start!
+      @running.set(true)
+      @logger.debug("Starting timeout enforcer (#{@timeout_nanos}ns)")
+      @timer_thread = Thread.new do
+        while @running.get()
+          begin
+            cancel_timed_out!
+          rescue Exception => e
+            @logger.error("Error while attempting to check/cancel excessively long kv patterns",
+                          :message => e.message,
+                          :class => e.class.name,
+                          :backtrace => e.backtrace
+            )
+          end
+          sleep 0.25
+        end
+      end
+    end
+
+    def stop!
+      @running.set(false)
+      @logger.debug("Shutting down timeout enforcer")
+      # Check for the thread mostly for a fast start/shutdown scenario
+      @timer_thread.join if @timer_thread
+    end
+
+    private
+
+    def cancel_timed_out!
+      now = java.lang.System.nanoTime # save ourselves some nanotime calls
+      @threads_to_start_time.keySet.each do |thread|
+        # Use compute to lock this value
+        @threads_to_start_time.computeIfPresent(thread) do |thread, start_time|
+          if start_time < now && now - start_time > @timeout_nanos
+            thread.interrupt
+            nil # Delete the key
+          else
+            start_time # preserve the key
+          end
+        end
+      end
+    end
+  end
+
+  class NullTimeoutEnforcer
+    def execute(&block)
+      yield
+    end
+
+    def start!
+      # no-op
+    end
+
+    def stop!
+      # no-op
+    end
+  end
+  NULL_TIMEOUT_ENFORCER = NullTimeoutEnforcer.new
 end
