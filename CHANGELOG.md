@@ -2,6 +2,7 @@
  - Added a timeout enforcer which prevents inputs that are pathological against the generated parser from blocking
    the pipeline. By default, timeout is a generous 30s, but can be configured or disabled entirely with the new
    `timeout_millis` and `tag_on_timeout` directives ([#79](https://github.com/logstash-plugins/logstash-filter-kv/pull/79))
+ - Made error-handling configurable with `tag_on_failure` directive.
 
 ## 4.2.1
  - Fixes performance regression introduced in 4.1.0 ([#70](https://github.com/logstash-plugins/logstash-filter-kv/issues/70))
