@@ -1,3 +1,6 @@
+## 4.3.1
+ - Fixed asciidoc formatting in documentation
+
 ## 4.3.0
  - Added a timeout enforcer which prevents inputs that are pathological against the generated parser from blocking
    the pipeline. By default, timeout is a generous 30s, but can be configured or disabled entirely with the new
