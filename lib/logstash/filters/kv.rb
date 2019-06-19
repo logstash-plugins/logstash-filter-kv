@@ -629,7 +629,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
       @running.set(true)
       @logger.debug("Starting timeout enforcer (#{@timeout_nanos}ns)")
       @timer_thread = Thread.new do
-        while @running.get()
+        while @running.get() || !@threads_to_start_time.is_empty
           begin
             cancel_timed_out!
           rescue Exception => e
