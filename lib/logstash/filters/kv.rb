@@ -609,6 +609,11 @@ class LogStash::Filters::KV < LogStash::Filters::Base
     end
 
     def execute(&block)
+      # If the enforcer is not running, either we failed to start it or it has
+      # already been stopped; in either case, we cannot reliably enforce the timeout
+      # so we raise a RuntimeError instead.
+      fail("TimeoutEnforcer not running.") unless alive?
+
       begin
         thread = java.lang.Thread.currentThread()
         @threads_to_start_time.put(thread, java.lang.System.nanoTime)
@@ -629,7 +634,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
       @running.set(true)
       @logger.debug("Starting timeout enforcer (#{@timeout_nanos}ns)")
       @timer_thread = Thread.new do
-        while @running.get()
+        while @running.get() || !@threads_to_start_time.is_empty
           begin
             cancel_timed_out!
           rescue Exception => e
@@ -649,6 +654,10 @@ class LogStash::Filters::KV < LogStash::Filters::Base
       @logger.debug("Shutting down timeout enforcer")
       # Check for the thread mostly for a fast start/shutdown scenario
       @timer_thread.join if @timer_thread
+    end
+
+    def alive?
+      @running.get() && @timer_thread && @timer_thread.alive?
     end
 
     private
