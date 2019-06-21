@@ -1,3 +1,6 @@
+## 4.3.3
+ - Fixed asciidoc formatting in docs
+
 ## 4.3.2
  - Resolved potential race condition in pipeline shutdown where the timeout enforcer could be shut down while work was still in-flight, potentially leading to stuck pipelines.
  - Resolved potential race condition in pipeline shutdown where work could be submitted to the timeout enforcer after it had been shutdown, potentially leading to stuck pipelines.
