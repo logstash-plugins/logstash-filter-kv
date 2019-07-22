@@ -1,3 +1,6 @@
+## 4.4.0
+ - Changed timeout handling using the Timeout class [#84](https://github.com/logstash-plugins/logstash-filter-kv/pull/84)
+
 ## 4.3.3
  - Fixed asciidoc formatting in docs
 

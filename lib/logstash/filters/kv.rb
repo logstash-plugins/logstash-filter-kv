@@ -2,6 +2,7 @@
 
 require "logstash/filters/base"
 require "logstash/namespace"
+require "timeout"
 
 # This filter helps automatically parse messages (or specific event fields)
 # which are of the `foo=bar` variety.
@@ -319,8 +320,6 @@ class LogStash::Filters::KV < LogStash::Filters::Base
 
   # Attempt to terminate regexps after this amount of time.
   # This applies per source field value if event has multiple values in the source field.
-  # This will never timeout early, but may take a little longer to timeout.
-  # Actual timeout is approximate based on a 250ms quantization.
   # Set to 0 to disable timeouts
   config :timeout_millis, :validate => :number, :default => 30_000
 
@@ -406,26 +405,17 @@ class LogStash::Filters::KV < LogStash::Filters::Base
 
     @logger.debug? && @logger.debug("KV scan regex", :regex => @scan_re.inspect)
 
-    @timeout_enforcer = initialize_timeout_enforcer
-    @timeout_enforcer.start!
+    # divide by float to allow fractionnal seconds, the Timeout class timeout value is in seconds but the underlying
+    # executor resolution is in microseconds so fractionnal second parameter down to microseconds is possible.
+    # see https://github.com/jruby/jruby/blob/9.2.7.0/core/src/main/java/org/jruby/ext/timeout/Timeout.java#L125
+    @timeout_seconds = @timeout_millis / 1000.0
   end
 
   def filter(event)
-    kv = Hash.new
     value = event.get(@source)
 
-    @timeout_enforcer.execute do
-      case value
-      when nil
-        # Nothing to do
-      when String
-        parse(value, event, kv)
-      when Array
-        value.each { |v| parse(v, event, kv) }
-      else
-        @logger.warn("kv filter has no support for this type of data", :type => value.class, :value => value)
-      end
-    end
+    # if timeout is 0 avoid creating a closure although Timeout.timeout has a bypass for 0s timeouts.
+    kv = @timeout_seconds > 0.0 ? Timeout.timeout(@timeout_seconds, TimeoutException) { parse_value(value, event) } : parse_value(value, event)
 
     # Add default key-values for missing keys
     kv = @default_keys.merge(kv)
@@ -452,10 +442,26 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   end
 
   def close
-    @timeout_enforcer.stop!
   end
 
   private
+
+  def parse_value(value, event)
+    kv = Hash.new
+
+    case value
+    when nil
+      # Nothing to do
+    when String
+      parse(value, event, kv)
+    when Array
+      value.each { |v| parse(v, event, kv) }
+    else
+      @logger.warn("kv filter has no support for this type of data", :type => value.class, :value => value)
+    end
+
+    kv
+  end
 
   # @overload summarize(value)
   #   @param value [Array]
@@ -474,13 +480,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
 
     value.bytesize < 255 ? "`#{value}`" : "entry too large; first 255 chars are `#{value[0..255].dump}`"
   end
-
-  def initialize_timeout_enforcer
-    return NULL_TIMEOUT_ENFORCER if @timeout_millis <= 0
-
-    TimeoutEnforcer.new(logger, @timeout_millis * 1_000_000)
-  end
-
+  
   def has_value_splitter?(s)
     s =~ @value_split_re
   end
@@ -596,100 +596,4 @@ class LogStash::Filters::KV < LogStash::Filters::Base
 
   class TimeoutException < RuntimeError
   end
-
-  class TimeoutEnforcer
-    def initialize(logger, timeout_nanos)
-      @logger = logger
-      @running = java.util.concurrent.atomic.AtomicBoolean.new(false)
-      @timeout_nanos = timeout_nanos
-
-      # Stores running matches with their start time, this is used to cancel long running matches
-      # Is a map of Thread => start_time
-      @threads_to_start_time = java.util.concurrent.ConcurrentHashMap.new
-    end
-
-    def execute(&block)
-      # If the enforcer is not running, either we failed to start it or it has
-      # already been stopped; in either case, we cannot reliably enforce the timeout
-      # so we raise a RuntimeError instead.
-      fail("TimeoutEnforcer not running.") unless alive?
-
-      begin
-        thread = java.lang.Thread.currentThread()
-        @threads_to_start_time.put(thread, java.lang.System.nanoTime)
-
-        yield
-
-      rescue InterruptedRegexpError, java.lang.InterruptedException => e
-        raise TimeoutException.new
-      ensure
-        # If the block finished, but interrupt was called after, we'll want to
-        # clear the interrupted status anyway
-        @threads_to_start_time.remove(thread)
-        thread.interrupted
-      end
-    end
-
-    def start!
-      @running.set(true)
-      @logger.debug("Starting timeout enforcer (#{@timeout_nanos}ns)")
-      @timer_thread = Thread.new do
-        while @running.get() || !@threads_to_start_time.is_empty
-          begin
-            cancel_timed_out!
-          rescue Exception => e
-            @logger.error("Error while attempting to check/cancel excessively long kv patterns",
-                          :message => e.message,
-                          :class => e.class.name,
-                          :backtrace => e.backtrace
-            )
-          end
-          sleep 0.25
-        end
-      end
-    end
-
-    def stop!
-      @running.set(false)
-      @logger.debug("Shutting down timeout enforcer")
-      # Check for the thread mostly for a fast start/shutdown scenario
-      @timer_thread.join if @timer_thread
-    end
-
-    def alive?
-      @running.get() && @timer_thread && @timer_thread.alive?
-    end
-
-    private
-
-    def cancel_timed_out!
-      now = java.lang.System.nanoTime # save ourselves some nanotime calls
-      @threads_to_start_time.keySet.each do |thread|
-        # Use compute to lock this value
-        @threads_to_start_time.computeIfPresent(thread) do |thread, start_time|
-          if start_time < now && now - start_time > @timeout_nanos
-            thread.interrupt
-            nil # Delete the key
-          else
-            start_time # preserve the key
-          end
-        end
-      end
-    end
-  end
-
-  class NullTimeoutEnforcer
-    def execute(&block)
-      yield
-    end
-
-    def start!
-      # no-op
-    end
-
-    def stop!
-      # no-op
-    end
-  end
-  NULL_TIMEOUT_ENFORCER = NullTimeoutEnforcer.new
 end
