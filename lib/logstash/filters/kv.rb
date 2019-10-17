@@ -519,7 +519,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   # @return [Regexp]
   def unquoted_capture_until_pattern(*patterns)
     pattern = patterns.size > 1 ? Regexp.union(patterns) : patterns.first
-    /((?:\\.|(?!#{pattern}).)+)/
+    /((?:(?!#{pattern})(?:\\.|.))+)/
   end
 
   # Helper function for generating *capturing* `Regexp` that will _efficiently_ match any sequence of characters

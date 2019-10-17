@@ -1,3 +1,6 @@
+## 4.4.1
+ - Fixed issue where a `field_split_pattern` containing a literal backslash failed to match correctly [#87](https://github.com/logstash-plugins/logstash-filter-kv/issues/87)
+
 ## 4.4.0
  - Changed timeout handling using the Timeout class [#84](https://github.com/logstash-plugins/logstash-filter-kv/pull/84)
 
