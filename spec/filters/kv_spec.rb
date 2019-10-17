@@ -4,6 +4,13 @@ require "logstash/devutils/rspec/spec_helper"
 require "insist"
 require "logstash/filters/kv"
 
+# Logstash starts JRuby with a special flag to ensure that regexp's are
+# executed in an interruptible fashion.
+require 'java'
+if java.lang.System.getProperty("jruby.regexp.interruptible") != "true"
+  fail("Java must be started with `-Djruby.regexp.interruptible=true`")
+end
+
 describe LogStash::Filters::KV do
 
   describe "defaults" do
