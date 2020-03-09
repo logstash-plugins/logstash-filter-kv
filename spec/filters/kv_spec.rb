@@ -1,6 +1,7 @@
 # encoding: utf-8
 
 require "logstash/devutils/rspec/spec_helper"
+require "insist"
 require "logstash/filters/kv"
 
 describe LogStash::Filters::KV do
