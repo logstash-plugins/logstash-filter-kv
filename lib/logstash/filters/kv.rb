@@ -330,6 +330,12 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   config :tag_on_failure, :validate => :string, :default => '_kv_filter_error'
 
   def register
+    # Too late to set the regexp interruptible flag, at least warn if it is not set.
+    require 'java'
+    if java.lang.System.getProperty("jruby.regexp.interruptible") != "true"
+      logger.warn("KV Filter registered without jruby interruptible regular expressions enabled (`-Djruby.regexp.interruptible=true`); timeouts may not be respected.")
+    end
+
     if @value_split.empty?
       raise LogStash::ConfigurationError, I18n.t(
         "logstash.runner.configuration.invalid_plugin_register",
@@ -513,7 +519,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   # @return [Regexp]
   def unquoted_capture_until_pattern(*patterns)
     pattern = patterns.size > 1 ? Regexp.union(patterns) : patterns.first
-    /((?:\\.|(?!#{pattern}).)+)/
+    /((?:(?!#{pattern})(?:\\.|.))+)/
   end
 
   # Helper function for generating *capturing* `Regexp` that will _efficiently_ match any sequence of characters

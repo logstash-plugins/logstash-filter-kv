@@ -4,6 +4,13 @@ require "logstash/devutils/rspec/spec_helper"
 require "insist"
 require "logstash/filters/kv"
 
+# Logstash starts JRuby with a special flag to ensure that regexp's are
+# executed in an interruptible fashion.
+require 'java'
+if java.lang.System.getProperty("jruby.regexp.interruptible") != "true"
+  fail("Java must be started with `-Djruby.regexp.interruptible=true`")
+end
+
 describe LogStash::Filters::KV do
 
   describe "defaults" do
@@ -485,6 +492,30 @@ describe LogStash::Filters::KV do
       insist { subject.get("baz") } == "fizz"
       insist { subject.get("doublequoted") } == "hello world"
       insist { subject.get("singlequoted") } == "hello world"
+    end
+  end
+
+  describe 'field_split_pattern with literal backslashes' do
+    config <<-CONFIG
+      filter {
+        kv {
+          source => headers
+          field_split_pattern => "\\\\r\\\\n"
+          value_split_pattern => ": "
+          whitespace => strict
+          target => headerskv
+        }
+      }
+    CONFIG
+
+    sample({"headers"=>"Host: foo.com\\r\\nUser-Agent: Qwerty/1.2.3 (www.qwerty.org)\\r\\nContent-Type: text/xml; charset=utf-8\\r\\nAccept: */*\\r\\nAccept-Encoding: gzip, deflate\\r\\nContent-Length: 123\\r\\nX-UUID: 0:15713435944943992\\r\\n\\r\\n"}) do
+      insist { subject.get("[headerskv][Host]") } == "foo.com"
+      insist { subject.get("[headerskv][User-Agent]") } == "Qwerty/1.2.3 (www.qwerty.org)"
+      insist { subject.get("[headerskv][Content-Type]") } == "text/xml; charset=utf-8"
+      insist { subject.get("[headerskv][Accept]") } == "*/*"
+      insist { subject.get("[headerskv][Accept-Encoding]") } == "gzip, deflate"
+      insist { subject.get("[headerskv][Content-Length]") } == "123"
+      insist { subject.get("[headerskv][X-UUID]") } == "0:15713435944943992"
     end
   end
 
