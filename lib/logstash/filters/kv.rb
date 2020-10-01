@@ -332,8 +332,10 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   def register
     # Too late to set the regexp interruptible flag, at least warn if it is not set.
     require 'java'
-    if java.lang.System.getProperty("jruby.regexp.interruptible") != "true"
-      logger.warn("KV Filter registered without jruby interruptible regular expressions enabled (`-Djruby.regexp.interruptible=true`); timeouts may not be respected.")
+    if java.lang.System.getProperty("jruby.regexp.interruptible") != "true" && @timeout_millis > 0
+      logger.warn("KV Filter registered with `timeout_millis` safeguard enabled, but a required flag is missing so timeouts cannot be reliably enforced. " +
+                  "Without this safeguard, runaway matchers in the KV filter may lead to high CPU usage and stalled pipelines. " +
+                  "To resolve, add `-Djruby.regexp.interruptible=true` to your `config/jvm.options` and restart the Logstash process.")
     end
 
     if @value_split.empty?

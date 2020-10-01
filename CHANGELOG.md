@@ -1,3 +1,6 @@
+## 4.4.2
+ - Improved action call-out of log warning when this plugin cannot enforce timeouts [#93](https://github.com/logstash-plugins/logstash-filter-kv/pull/93)
+
 ## 4.4.1
  - Fixed issue where a `field_split_pattern` containing a literal backslash failed to match correctly [#87](https://github.com/logstash-plugins/logstash-filter-kv/issues/87)
 
