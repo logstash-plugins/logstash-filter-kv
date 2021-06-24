@@ -2,6 +2,9 @@
 
 require "logstash/filters/base"
 require "logstash/namespace"
+require 'logstash/plugin_mixins/ecs_compatibility_support'
+require 'logstash/plugin_mixins/ecs_compatibility_support/target_check'
+require 'logstash/plugin_mixins/validator_support/field_reference_validation_adapter'
 require "timeout"
 
 # This filter helps automatically parse messages (or specific event fields)
@@ -29,6 +32,11 @@ require "timeout"
 # `foo=bar&baz=fizz` by setting the `field_split` parameter to `&`.
 class LogStash::Filters::KV < LogStash::Filters::Base
   config_name "kv"
+
+  include LogStash::PluginMixins::ECSCompatibilitySupport
+  include LogStash::PluginMixins::ECSCompatibilitySupport::TargetCheck
+
+  extend LogStash::PluginMixins::ValidatorSupport::FieldReferenceValidationAdapter
 
   # Constants used for transform check
   TRANSFORM_LOWERCASE_KEY = "lowercase"
@@ -201,7 +209,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   # For example, to process the `not_the_message` field:
   # [source,ruby]
   #     filter { kv { source => "not_the_message" } }
-  config :source, :validate => :string, :default => "message"
+  config :source, :validate => :field_reference, :default => "message"
 
   # The name of the container to put all of the key-value pairs into.
   #
@@ -211,7 +219,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   # For example, to place all keys into the event field kv:
   # [source,ruby]
   #     filter { kv { target => "kv" } }
-  config :target, :validate => :string
+  config :target, :validate => :field_reference
 
   # An array specifying the parsed keys which should be added to the event.
   # By default all keys will be added.
