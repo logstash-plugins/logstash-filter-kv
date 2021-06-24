@@ -437,7 +437,9 @@ class LogStash::Filters::KV < LogStash::Filters::Base
     return if kv.empty?
 
     if @target
-      @logger.debug? && @logger.debug("Overwriting existing target field", :target => @target)
+      if event.include?(@target)
+        @logger.debug? && @logger.debug("Overwriting existing target field", field: @target, existing_value: event.get(@target))
+      end
       event.set(@target, kv)
     else
       kv.each{|k, v| event.set(k, v)}
