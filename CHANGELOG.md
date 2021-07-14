@@ -1,3 +1,6 @@
+## 4.5.0
+ - Feat: check that target is set in ECS mode [#96](https://github.com/logstash-plugins/logstash-filter-kv/pull/96)
+
 ## 4.4.1
  - Fixed issue where a `field_split_pattern` containing a literal backslash failed to match correctly [#87](https://github.com/logstash-plugins/logstash-filter-kv/issues/87)
 
