@@ -42,6 +42,7 @@ bundle install
 - Run tests
 
 ```sh
+export JRUBY_OPTS="-J-Djruby.regexp.interruptible=true"
 bundle exec rspec
 ```
 
