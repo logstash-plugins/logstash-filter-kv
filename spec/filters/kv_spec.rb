@@ -1144,7 +1144,7 @@ context 'runtime errors' do
       plugin.filter(event)
     end
     context 'when a custom tag is defined' do
-      let(:options) { super().merge("tag_on_failure" => ["KV-ERROR"])}
+      let(:options) { super().merge("tag_on_failure" => "KV-ERROR")}
       it 'tags the event with the custom tag' do
         plugin.filter(event)
         expect(event.get('tags')).to_not be_nil
@@ -1153,12 +1153,13 @@ context 'runtime errors' do
       end
     end
     context 'when multiple custom tags are defined' do
-      let(:options) { super().merge("tag_on_failure" => ["_kv_filter_error", "_kv_filter_pattern"])}
+      let(:options) { super().merge("tag_on_failure" => ["kv_FAIL_one", "_kv_fail_TWO"])}
       it 'tags the event with the custom tag' do
         plugin.filter(event)
         expect(event.get('tags')).to_not be_nil
-        expect(event.get('tags')).to include('_kv_filter_error')
-        expect(event.get('tags')).to include('_kv_filter_pattern')
+        expect(event.get('tags')).to include('kv_FAIL_one')
+        expect(event.get('tags')).to include('_kv_fail_TWO')
+        expect(event.get('tags')).to_not include('_kv_filter_error')
       end
     end
   end

@@ -1,5 +1,5 @@
 ## 4.7.0
-- Allow attaching multiple tags on failure. Changed type of `tag_on_failure` from string to array [#92](https://github.com/logstash-plugins/logstash-filter-kv/issues/92)
+- Allow attaching multiple tags on failure. The `tag_on_failure` option now also supports an array of strings [#92](https://github.com/logstash-plugins/logstash-filter-kv/issues/92)
 
 ## 4.6.0
  - Added `allow_empty_values` option [#72](https://github.com/logstash-plugins/logstash-filter-kv/pull/72)
