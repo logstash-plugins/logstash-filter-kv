@@ -67,7 +67,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   # These characters form a regex character class and thus you must escape special regex
   # characters like `[` or `]` using `\`.
   #
-  # Only leading and trailing characters are trimed from the key.
+  # Only leading and trailing characters are trimmed from the key.
   #
   # For example, to trim `<` `>` `[` `]` and `,` characters from keys:
   # [source,ruby]
@@ -338,7 +338,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   config :tag_on_timeout, :validate => :string, :default => '_kv_filter_timeout'
 
   # Tag to apply if kv errors
-  config :tag_on_failure, :validate => :string, :default => '_kv_filter_error'
+  config :tag_on_failure, :validate => :array, :default => ['_kv_filter_error']
 
 
   EMPTY_STRING = ''.freeze
@@ -425,8 +425,8 @@ class LogStash::Filters::KV < LogStash::Filters::Base
 
     @logger.debug? && @logger.debug("KV scan regex", :regex => @scan_re.inspect)
 
-    # divide by float to allow fractionnal seconds, the Timeout class timeout value is in seconds but the underlying
-    # executor resolution is in microseconds so fractionnal second parameter down to microseconds is possible.
+    # divide by float to allow fractional seconds, the Timeout class timeout value is in seconds but the underlying
+    # executor resolution is in microseconds so fractional second parameter down to microseconds is possible.
     # see https://github.com/jruby/jruby/blob/9.2.7.0/core/src/main/java/org/jruby/ext/timeout/Timeout.java#L125
     @timeout_seconds = @timeout_millis / 1000.0
   end
@@ -460,7 +460,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
     meta = { :exception => ex.message }
     meta[:backtrace] = ex.backtrace if logger.debug?
     logger.warn('Exception while parsing KV', meta)
-    event.tag(@tag_on_failure)
+    @tag_on_failure.each { |tag| event.tag(tag) }
   end
 
   def close
@@ -502,7 +502,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
 
     value.bytesize < 255 ? "`#{value}`" : "entry too large; first 255 chars are `#{value[0..255].dump}`"
   end
-  
+
   def has_value_splitter?(s)
     s =~ @value_split_re
   end
