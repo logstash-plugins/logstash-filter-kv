@@ -500,7 +500,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
 
     value = value.to_s
 
-    value.bytesize < 255 ? "`#{value}`" : "entry too large; first 255 chars are `#{value[0..255].dump}`"
+    value.bytesize < 255 ? "`#{value.dump}`" : "(entry too large to show; showing first 255 characters) `#{value[0..255].dump}`[...]"
   end
   
   def has_value_splitter?(s)
