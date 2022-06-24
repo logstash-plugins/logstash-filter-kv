@@ -460,7 +460,6 @@ describe LogStash::Filters::KV do
     end
   end
 
-
   describe "test data from specific sub source" do
     config <<-CONFIG
       filter {
@@ -518,7 +517,6 @@ describe LogStash::Filters::KV do
       insist { subject.get("[headerskv][X-UUID]") } == "0:15713435944943992"
     end
   end
-
 
   describe "test data from specific sub source and target" do
     config <<-CONFIG
@@ -718,6 +716,27 @@ describe LogStash::Filters::KV do
 
     sample("source" => "foo=bar&foo=yeah&foo=yeah") do
       insist { subject.get("[foo]") } == ["bar", "yeah"]
+    end
+  end
+
+  describe "Allowing empty values" do
+    config <<-CONFIG
+      filter {
+        kv {
+          field_split => " "
+          source => "source"
+          allow_empty_values => true
+          whitespace => strict
+        }
+      }
+    CONFIG
+
+    sample("source" => "present=one empty= emptyquoted='' present=two emptybracketed=[] endofinput=") do
+      insist { subject.get('[present]') } == ['one','two']
+      insist { subject.get('[empty]') } == ''
+      insist { subject.get('[emptyquoted]') } == ''
+      insist { subject.get('[emptybracketed]') } == ''
+      insist { subject.get('[endofinput]') } == ''
     end
   end
 
@@ -1038,7 +1057,6 @@ describe "multi character splitting" do
     it_behaves_like "parsing all fields and values"
   end
 
-
   context "example from @guyboertje in #15" do
     let(:message) { 'key1: val1; key2: val2; key3:  https://site/?g={......"...;  CLR  rv:11.0)"..}; key4: val4;' }
     let(:options) {
@@ -1131,6 +1149,17 @@ context 'runtime errors' do
         plugin.filter(event)
         expect(event.get('tags')).to_not be_nil
         expect(event.get('tags')).to include('KV-ERROR')
+        expect(event.get('tags')).to_not include('_kv_filter_error')
+      end
+    end
+    context 'when multiple custom tags are defined' do
+      let(:options) { super().merge("tag_on_failure" => ["kv_FAIL_one", "_kv_fail_TWO"])}
+      it 'tags the event with the custom tag' do
+        plugin.filter(event)
+        expect(event.get('tags')).to_not be_nil
+        expect(event.get('tags')).to include('kv_FAIL_one')
+        expect(event.get('tags')).to include('_kv_fail_TWO')
+        expect(event.get('tags')).to_not include('_kv_filter_error')
       end
     end
   end

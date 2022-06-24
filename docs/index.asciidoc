@@ -44,6 +44,13 @@ in case your data is not structured using `=` signs and whitespace.
 For example, this filter can also be used to parse query parameters like
 `foo=bar&baz=fizz` by setting the `field_split` parameter to `&`.
 
+[id="plugins-{type}s-{plugin}-ecs_metadata"]
+==== Event Metadata and the Elastic Common Schema (ECS)
+
+The plugin behaves the same regardless of ECS compatibility, except giving a warning when ECS is enabled and `target` isn't set.
+
+TIP: Set the `target` option to avoid potential schema conflicts.
+
 [id="plugins-{type}s-{plugin}-options"]
 ==== Kv Filter Configuration Options
 
@@ -53,7 +60,9 @@ This plugin supports the following configuration options plus the <<plugins-{typ
 |=======================================================================
 |Setting |Input type|Required
 | <<plugins-{type}s-{plugin}-allow_duplicate_values>> |<<boolean,boolean>>|No
+| <<plugins-{type}s-{plugin}-allow_empty_values>> |<<boolean,boolean>>|No
 | <<plugins-{type}s-{plugin}-default_keys>> |<<hash,hash>>|No
+| <<plugins-{type}s-{plugin}-ecs_compatibility>> | <<string,string>>|No
 | <<plugins-{type}s-{plugin}-exclude_keys>> |<<array,array>>|No
 | <<plugins-{type}s-{plugin}-field_split>> |<<string,string>>|No
 | <<plugins-{type}s-{plugin}-field_split_pattern>> |<<string,string>>|No
@@ -65,7 +74,7 @@ This plugin supports the following configuration options plus the <<plugins-{typ
 | <<plugins-{type}s-{plugin}-remove_char_value>> |<<string,string>>|No
 | <<plugins-{type}s-{plugin}-source>> |<<string,string>>|No
 | <<plugins-{type}s-{plugin}-target>> |<<string,string>>|No
-| <<plugins-{type}s-{plugin}-tag_on_failure>> |<<string,string>>|No
+| <<plugins-{type}s-{plugin}-tag_on_failure>> |<<array,array>>|No
 | <<plugins-{type}s-{plugin}-tag_on_timeout>> |<<string,string>>|No
 | <<plugins-{type}s-{plugin}-timeout_millis>> |<<number,number>>|No
 | <<plugins-{type}s-{plugin}-transform_key>> |<<string,string>>, one of `["lowercase", "uppercase", "capitalize"]`|No
@@ -101,6 +110,17 @@ you could use this configuration:
       }
     }
 
+[id="plugins-{type}s-{plugin}-allow_empty_values"]
+===== `allow_empty_values`
+
+  * Value type is <<boolean,boolean>>
+  * Default value is `false`
+
+A bool option for explicitly including empty values.
+When set to true, empty values will be added to the event.
+
+NOTE: Parsing empty values typically requires <<plugins-{type}s-{plugin}-whitespace,`whitespace => strict`>>.
+
 [id="plugins-{type}s-{plugin}-default_keys"]
 ===== `default_keys` 
 
@@ -116,6 +136,17 @@ in case these keys do not exist in the source field being parsed.
                          "to", "default@dev.null" ]
       }
     }
+
+[id="plugins-{type}s-{plugin}-ecs_compatibility"]
+===== `ecs_compatibility`
+
+  * Value type is <<string,string>>
+  * Supported values are:
+    ** `disabled`: does not use ECS-compatible field names
+    ** `v1`: Elastic Common Schema compliant behavior (warns when `target` isn't set)
+
+Controls this plugin's compatibility with the {ecs-ref}[Elastic Common Schema (ECS)].
+See <<plugins-{type}s-{plugin}-ecs_metadata>> for detailed information.
 
 [id="plugins-{type}s-{plugin}-exclude_keys"]
 ===== `exclude_keys` 
@@ -341,12 +372,12 @@ For example, to place all keys into the event field kv:
 [id="plugins-{type}s-{plugin}-tag_on_failure"]
 ===== `tag_on_failure`
 
-  * Value type is <<string,string>>
-  * The default value for this setting is `_kv_filter_error`.
+  * Value type is <<array,array>>
+  * The default value for this setting is [`_kv_filter_error`].
 
 When a kv operation causes a runtime exception to be thrown within the plugin,
 the operation is safely aborted without crashing the plugin, and the event is
-tagged with the provided value.
+tagged with the provided values.
 
 [id="plugins-{type}s-{plugin}-tag_on_timeout"]
 ===== `tag_on_timeout`

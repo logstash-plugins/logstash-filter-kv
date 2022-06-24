@@ -2,6 +2,9 @@
 
 require "logstash/filters/base"
 require "logstash/namespace"
+require 'logstash/plugin_mixins/ecs_compatibility_support'
+require 'logstash/plugin_mixins/ecs_compatibility_support/target_check'
+require 'logstash/plugin_mixins/validator_support/field_reference_validation_adapter'
 require "timeout"
 
 # This filter helps automatically parse messages (or specific event fields)
@@ -29,6 +32,11 @@ require "timeout"
 # `foo=bar&baz=fizz` by setting the `field_split` parameter to `&`.
 class LogStash::Filters::KV < LogStash::Filters::Base
   config_name "kv"
+
+  include LogStash::PluginMixins::ECSCompatibilitySupport
+  include LogStash::PluginMixins::ECSCompatibilitySupport::TargetCheck
+
+  extend LogStash::PluginMixins::ValidatorSupport::FieldReferenceValidationAdapter
 
   # Constants used for transform check
   TRANSFORM_LOWERCASE_KEY = "lowercase"
@@ -59,7 +67,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   # These characters form a regex character class and thus you must escape special regex
   # characters like `[` or `]` using `\`.
   #
-  # Only leading and trailing characters are trimed from the key.
+  # Only leading and trailing characters are trimmed from the key.
   #
   # For example, to trim `<` `>` `[` `]` and `,` characters from keys:
   # [source,ruby]
@@ -201,7 +209,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   # For example, to process the `not_the_message` field:
   # [source,ruby]
   #     filter { kv { source => "not_the_message" } }
-  config :source, :validate => :string, :default => "message"
+  config :source, :validate => :field_reference, :default => "message"
 
   # The name of the container to put all of the key-value pairs into.
   #
@@ -211,7 +219,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   # For example, to place all keys into the event field kv:
   # [source,ruby]
   #     filter { kv { target => "kv" } }
-  config :target, :validate => :string
+  config :target, :validate => :field_reference
 
   # An array specifying the parsed keys which should be added to the event.
   # By default all keys will be added.
@@ -263,6 +271,9 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   #       }
   #     }
   config :allow_duplicate_values, :validate => :boolean, :default => true
+
+  # A bool option for keeping empty or nil values.
+  config :allow_empty_values, :validate => :boolean, :default => false
 
   # A boolean specifying whether to treat square brackets, angle brackets,
   # and parentheses as value "wrappers" that should be removed from the value.
@@ -327,7 +338,10 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   config :tag_on_timeout, :validate => :string, :default => '_kv_filter_timeout'
 
   # Tag to apply if kv errors
-  config :tag_on_failure, :validate => :string, :default => '_kv_filter_error'
+  config :tag_on_failure, :validate => :array, :default => ['_kv_filter_error']
+
+
+  EMPTY_STRING = ''.freeze
 
   def register
     # Too late to set the regexp interruptible flag, at least warn if it is not set.
@@ -413,8 +427,8 @@ class LogStash::Filters::KV < LogStash::Filters::Base
 
     @logger.debug? && @logger.debug("KV scan regex", :regex => @scan_re.inspect)
 
-    # divide by float to allow fractionnal seconds, the Timeout class timeout value is in seconds but the underlying
-    # executor resolution is in microseconds so fractionnal second parameter down to microseconds is possible.
+    # divide by float to allow fractional seconds, the Timeout class timeout value is in seconds but the underlying
+    # executor resolution is in microseconds so fractional second parameter down to microseconds is possible.
     # see https://github.com/jruby/jruby/blob/9.2.7.0/core/src/main/java/org/jruby/ext/timeout/Timeout.java#L125
     @timeout_seconds = @timeout_millis / 1000.0
   end
@@ -431,7 +445,9 @@ class LogStash::Filters::KV < LogStash::Filters::Base
     return if kv.empty?
 
     if @target
-      @logger.debug? && @logger.debug("Overwriting existing target field", :target => @target)
+      if event.include?(@target)
+        @logger.debug? && @logger.debug("Overwriting existing target field", field: @target, existing_value: event.get(@target))
+      end
       event.set(@target, kv)
     else
       kv.each{|k, v| event.set(k, v)}
@@ -446,7 +462,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
     meta = { :exception => ex.message }
     meta[:backtrace] = ex.backtrace if logger.debug?
     logger.warn('Exception while parsing KV', meta)
-    event.tag(@tag_on_failure)
+    @tag_on_failure.each { |tag| event.tag(tag) }
   end
 
   def close
@@ -486,9 +502,9 @@ class LogStash::Filters::KV < LogStash::Filters::Base
 
     value = value.to_s
 
-    value.bytesize < 255 ? "`#{value}`" : "entry too large; first 255 chars are `#{value[0..255].dump}`"
+    value.bytesize < 255 ? "`#{value.dump}`" : "(entry too large to show; showing first 255 characters) `#{value[0..255].dump}`[...]"
   end
-  
+
   def has_value_splitter?(s)
     s =~ @value_split_re
   end
@@ -561,12 +577,12 @@ class LogStash::Filters::KV < LogStash::Filters::Base
     exclude_keys = @exclude_keys.map{|key| event.sprintf(key)}
 
     text.scan(@scan_re) do |key, *value_candidates|
-      value = value_candidates.compact.first
-      next if value.nil? || value.empty?
+      value = value_candidates.compact.first || EMPTY_STRING
+      next if value.empty? && !@allow_empty_values
 
-      key = @trim_key ? key.gsub(@trim_key_re, "") : key
-      key = @remove_char_key ? key.gsub(@remove_char_key_re, "") : key
-      key = @transform_key ? transform(key, @transform_key) : key
+      key = key.gsub(@trim_key_re, EMPTY_STRING) if @trim_key
+      key = key.gsub(@remove_char_key_re, EMPTY_STRING) if @remove_char_key
+      key = transform(key, @transform_key) if @transform_key
 
       # Bail out as per the values of include_keys and exclude_keys
       next if not include_keys.empty? and not include_keys.include?(key)
@@ -575,9 +591,9 @@ class LogStash::Filters::KV < LogStash::Filters::Base
 
       key = event.sprintf(@prefix) + key
 
-      value = @trim_value ? value.gsub(@trim_value_re, "") : value
-      value = @remove_char_value ? value.gsub(@remove_char_value_re, "") : value
-      value = @transform_value ? transform(value, @transform_value) : value
+      value = value.gsub(@trim_value_re, EMPTY_STRING) if @trim_value
+      value = value.gsub(@remove_char_value_re, EMPTY_STRING) if @remove_char_value
+      value = transform(value, @transform_value) if @transform_value
 
       # Bail out if inserting duplicate value in key mapping when unique_values
       # option is set to true.
