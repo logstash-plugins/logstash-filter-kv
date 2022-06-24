@@ -1,3 +1,6 @@
+## 4.7.1
+ - Improved action call-out of log warning when this plugin cannot enforce timeouts [#93](https://github.com/logstash-plugins/logstash-filter-kv/pull/93)
+
 ## 4.7.0
  - Allow attaching multiple tags on failure. The `tag_on_failure` option now also supports an array of strings [#100](https://github.com/logstash-plugins/logstash-filter-kv/issues/100). Fixes [#92](https://github.com/logstash-plugins/logstash-filter-kv/issues/92)
 
