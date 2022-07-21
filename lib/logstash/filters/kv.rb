@@ -422,7 +422,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
       Regexp.union(value_patterns)
     end
 
-    @scan_re = /#{key_pattern}#{value_split_pattern}#{value_pattern}?#{Regexp::union(field_split_pattern, eof)}/
+    @scan_re = /(?:#{field_split_pattern})?#{key_pattern}#{value_split_pattern}#{value_pattern}?#{Regexp::union(field_split_pattern, eof)}/
     @value_split_re = value_split_pattern
 
     @logger.debug? && @logger.debug("KV scan regex", :regex => @scan_re.inspect)
