@@ -468,7 +468,7 @@ describe LogStash::Filters::KV do
         }
       }
     CONFIG
-    sample("data" => "hello=world foo=bar baz=fizz doublequoted=\"hello world\" singlequoted='hello world'") do
+    sample({"data" => "hello=world foo=bar baz=fizz doublequoted=\"hello world\" singlequoted='hello world'"}) do
       insist { subject.get("hello") } == "world"
       insist { subject.get("foo") } == "bar"
       insist { subject.get("baz") } == "fizz"
@@ -527,7 +527,7 @@ describe LogStash::Filters::KV do
         }
       }
     CONFIG
-    sample("data" => "hello=world foo=bar baz=fizz doublequoted=\"hello world\" singlequoted='hello world'") do
+    sample({"data" => "hello=world foo=bar baz=fizz doublequoted=\"hello world\" singlequoted='hello world'"}) do
       insist { subject.get("kv")["hello"] } == "world"
       insist { subject.get("kv")["foo"] } == "bar"
       insist { subject.get("kv")["baz"] } == "fizz"
@@ -696,7 +696,7 @@ describe LogStash::Filters::KV do
       }
     CONFIG
 
-    sample("happy" => "foo=bar baz=fizz") do
+    sample({"happy" => "foo=bar baz=fizz"}) do
       insist { subject.get("[happy][foo]") } == "bar"
       insist { subject.get("[happy][baz]") } == "fizz"
     end
@@ -714,7 +714,7 @@ describe LogStash::Filters::KV do
       }
     CONFIG
 
-    sample("source" => "foo=bar&foo=yeah&foo=yeah") do
+    sample({"source" => "foo=bar&foo=yeah&foo=yeah"}) do
       insist { subject.get("[foo]") } == ["bar", "yeah"]
     end
   end
@@ -731,7 +731,7 @@ describe LogStash::Filters::KV do
       }
     CONFIG
 
-    sample("source" => "present=one empty= emptyquoted='' present=two emptybracketed=[] endofinput=") do
+    sample({"source" => "present=one empty= emptyquoted='' present=two emptybracketed=[] endofinput="}) do
       insist { subject.get('[present]') } == ['one','two']
       insist { subject.get('[empty]') } == ''
       insist { subject.get('[emptyquoted]') } == ''
@@ -750,7 +750,7 @@ describe LogStash::Filters::KV do
       }
     CONFIG
 
-    sample("source" => "foo=bar&foo=yeah&foo=yeah") do
+    sample({"source" => "foo=bar&foo=yeah&foo=yeah"}) do
       insist { subject.get("[foo]") } == ["bar", "yeah", "yeah"]
     end
   end
@@ -913,7 +913,7 @@ describe LogStash::Filters::KV do
       }
     CONFIG
 
-    sample("message" => "random message") do
+    sample({"message" => "random message"}) do
       insist { subject }.raises(LogStash::ConfigurationError)
     end
   end
