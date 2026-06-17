@@ -1109,6 +1109,75 @@ describe "multi character splitting" do
       it_behaves_like "parse empty values"
     end
   end
+
+  context 'when value splitter is missing from a field' do
+
+    shared_examples 'skips valueless keys' do
+      it 'captures all keys with values' do
+        subject.filter(event)
+
+        aggregate_failures do
+          expect(event.to_hash).to include('k1' => 'v1')
+          expect(event.to_hash).to include('k2' => 'v2')
+          expect(event.to_hash).to_not include('missing')
+        end
+      end
+    end
+
+    context 'with multibyte field_split_pattern' do
+      let(:options) do
+        {
+              "field_split_pattern" => '__',
+              "value_split" => "=",
+        }
+      end
+
+      context 'at beginning of input' do
+        include_examples 'skips valueless keys' do
+          let(:message) { 'missing__k1=v1__k2=v2' }
+        end
+      end
+
+      context 'at end of input' do
+        include_examples 'skips valueless keys' do
+          let(:message) { 'k1=v1__missing__k2=v2' }
+        end
+      end
+
+      context 'in the middle of input' do
+        include_examples 'skips valueless keys' do
+          let(:message) { 'k1=v1__k2=v2__missing' }
+        end
+      end
+    end
+
+    context 'with field_split' do
+      let(:options) do
+        {
+              "field_split" => '&',
+              "value_split" => "=",
+        }
+      end
+
+      context 'at beginning of input' do
+        include_examples 'skips valueless keys' do
+          let(:message) { 'missing&k1=v1&k2=v2' }
+        end
+      end
+
+      context 'at end of input' do
+        include_examples 'skips valueless keys' do
+          let(:message) { 'k1=v1&missing&k2=v2' }
+        end
+      end
+
+      context 'in the middle of input' do
+        include_examples 'skips valueless keys' do
+          let(:message) { 'k1=v1&k2=v2&missing' }
+        end
+      end
+    end
+  end
 end
 
 context 'runtime errors' do
