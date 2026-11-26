@@ -318,6 +318,91 @@ describe LogStash::Filters::KV do
     end
   end
 
+  describe "recursion depth limit" do
+    let(:max_depth) { LogStash::Filters::KV::MAX_RECURSION_DEPTH }
+    let(:options) { {"recursive" => "true"} }
+    subject(:plugin) do
+      LogStash::Filters::KV.new(options).instance_exec { register; self }
+    end
+    let(:event) { LogStash::Event.new("message" => message) }
+
+    # `a=a=...=z` nests one level per `a=`
+    def nested_message(levels)
+      "a=" * levels + "z"
+    end
+
+    # number of Hash levels below `value`, so `{"a" => {"a" => "z"}}` has 2
+    def nesting_levels(value)
+      value.is_a?(Hash) ? 1 + nesting_levels(value.values.first) : 0
+    end
+
+    context "when the nesting is within the limit" do
+      let(:message) { nested_message(max_depth) }
+
+      it "parses all levels" do
+        plugin.filter(event)
+
+        expect(nesting_levels(event.get("a"))).to eq(max_depth - 1)
+        expect(event.get("tags")).to be_nil
+      end
+    end
+
+    context "when the nesting is deeper than the limit" do
+      let(:message) { nested_message(max_depth + 1) }
+
+      it "tags the event and sets no field" do
+        plugin.filter(event)
+
+        expect(event.get("tags")).to eq(%w(_kv_filter_error))
+        expect(event.get("a")).to be_nil
+      end
+
+      context "with a shallow field before the deep one" do
+        let(:message) { "x=1 " + nested_message(max_depth + 1) }
+
+        it "sets no field from the source" do
+          plugin.filter(event)
+
+          expect(event.get("tags")).to eq(%w(_kv_filter_error))
+          expect(event.get("x")).to be_nil
+          expect(event.get("a")).to be_nil
+        end
+      end
+
+      context "with a custom `tag_on_failure`" do
+        let(:options) { super().merge("tag_on_failure" => %w(BADKV TOO_DEEP)) }
+
+        it "applies the custom tags" do
+          plugin.filter(event)
+
+          expect(event.get("tags")).to eq(%w(BADKV TOO_DEEP))
+        end
+      end
+    end
+
+    context "when the nesting is far deeper than the stack can hold" do
+      let(:message) { nested_message(10_000) }
+
+      it "tags the event and keeps running" do
+        expect { plugin.filter(event) }.not_to raise_error
+
+        expect(event.get("tags")).to eq(%w(_kv_filter_error))
+      end
+    end
+
+    context "when `recursive` is disabled" do
+      let(:options) { {} }
+      let(:message) { nested_message(10_000) }
+
+      it "does not tag the event" do
+        plugin.filter(event)
+
+        expect(event.get("tags")).to be_nil
+        expect(event.get("a")).to eq(nested_message(9_999))
+      end
+    end
+  end
+
   describe  "delimited fields should override space default (reported by LOGSTASH-733)" do
     config <<-CONFIG
       filter {
