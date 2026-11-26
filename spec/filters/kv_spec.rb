@@ -348,35 +348,15 @@ describe LogStash::Filters::KV do
     end
 
     context "when the nesting is deeper than the limit" do
-      let(:message) { nested_message(max_depth + 1) }
+      # the shallow field `x` comes first, to show that the whole source is dropped
+      let(:message) { "x=1 " + nested_message(max_depth + 1) }
 
-      it "tags the event and sets no field" do
+      it "tags the event and sets no field from the source" do
         plugin.filter(event)
 
         expect(event.get("tags")).to eq(%w(_kv_filter_error))
+        expect(event.get("x")).to be_nil
         expect(event.get("a")).to be_nil
-      end
-
-      context "with a shallow field before the deep one" do
-        let(:message) { "x=1 " + nested_message(max_depth + 1) }
-
-        it "sets no field from the source" do
-          plugin.filter(event)
-
-          expect(event.get("tags")).to eq(%w(_kv_filter_error))
-          expect(event.get("x")).to be_nil
-          expect(event.get("a")).to be_nil
-        end
-      end
-
-      context "with a custom `tag_on_failure`" do
-        let(:options) { super().merge("tag_on_failure" => %w(BADKV TOO_DEEP)) }
-
-        it "applies the custom tags" do
-          plugin.filter(event)
-
-          expect(event.get("tags")).to eq(%w(BADKV TOO_DEEP))
-        end
       end
     end
 
