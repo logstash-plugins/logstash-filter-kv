@@ -292,6 +292,8 @@ and recursively get more key-value pairs from it.
 The extra key-value pairs will be stored as subkeys of the root key.
 
 Default is not to recursive values.
+If a value nests deeper than 100 levels, the filter sets no fields from the source
+and tags the event with `tag_on_failure`.
 [source,ruby]
     filter {
       kv {

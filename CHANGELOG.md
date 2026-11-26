@@ -1,3 +1,6 @@
+## 4.7.2
+ - Limit the nesting depth of `recursive` parsing to 100 levels. Deeper input is tagged with `tag_on_failure` [#108](https://github.com/logstash-plugins/logstash-filter-kv/pull/108)
+
 ## 4.7.1
  - Improved action call-out of log warning when this plugin cannot enforce timeouts [#93](https://github.com/logstash-plugins/logstash-filter-kv/pull/93)
 

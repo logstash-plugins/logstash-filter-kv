@@ -306,6 +306,8 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   # The extra key-value pairs will be stored as subkeys of the root key.
   #
   # Default is not to recursive values.
+  # If a value nests deeper than 100 levels, the filter sets no fields from the source
+  # and tags the event with `tag_on_failure`.
   # [source,ruby]
   #     filter {
   #       kv {
@@ -342,6 +344,10 @@ class LogStash::Filters::KV < LogStash::Filters::Base
 
 
   EMPTY_STRING = ''.freeze
+
+  # The deepest nesting that `recursive` parsing accepts.
+  # An event with deeper nesting is tagged with `tag_on_failure`.
+  MAX_RECURSION_DEPTH = 100
 
   def register
     # Too late to set the regexp interruptible flag, at least warn if it is not set.
@@ -566,11 +572,16 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   # @param text [String]: the text to parse
   # @param event [LogStash::Event]: the event from which to extract context (e.g., sprintf vs (in|ex)clude keys)
   # @param kv_keys [Hash{String=>Object}]: the hash in which to inject found key/value pairs
+  # @param depth [Integer]: how many levels of `recursive` parsing lead to this call
   #
   # @return [void]
-  def parse(text, event, kv_keys)
+  # @raise [RecursionDepthExceeded] when `recursive` parsing nests deeper than {MAX_RECURSION_DEPTH}
+  def parse(text, event, kv_keys, depth = 0)
     # short circuit parsing if the text does not contain the @value_split
     return unless has_value_splitter?(text)
+
+    # bound the recursion before it exhausts the stack of the worker thread
+    raise RecursionDepthExceeded if depth >= MAX_RECURSION_DEPTH
 
     # Interpret dynamic keys for @include_keys and @exclude_keys
     include_keys = @include_keys.map{|key| event.sprintf(key)}
@@ -602,7 +613,7 @@ class LogStash::Filters::KV < LogStash::Filters::Base
       # recursively get more kv pairs from the value
       if @recursive
         innerKv = {}
-        parse(value, event, innerKv)
+        parse(value, event, innerKv, depth + 1)
         value = innerKv unless innerKv.empty?
       end
 
@@ -619,5 +630,13 @@ class LogStash::Filters::KV < LogStash::Filters::Base
   end
 
   class TimeoutException < RuntimeError
+  end
+
+  # Raised when `recursive` parsing finds values nested deeper than {MAX_RECURSION_DEPTH}.
+  # It is a `RuntimeError`, so {#filter} tags the event with `tag_on_failure`.
+  class RecursionDepthExceeded < RuntimeError
+    def initialize
+      super("Recursive parsing exceeded the maximum nesting depth of #{MAX_RECURSION_DEPTH}")
+    end
   end
 end
